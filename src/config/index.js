@@ -3,7 +3,12 @@ import { fileURLToPath, URL } from "node:url";
 dotenv.config();
 
 const isProd = process.env.NODE_ENV === "production";
-const uploadsDir = fileURLToPath(new URL("../../uploads/", import.meta.url));
+let uploadsDir;
+try {
+  uploadsDir = fileURLToPath(new URL("../../uploads/", import.meta.url));
+} catch {
+  uploadsDir = "/tmp/uploads";
+}
 const numberEnv = (key, fallback) =>
   process.env[key] === undefined ? fallback : Number(process.env[key]);
 
