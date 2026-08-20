@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -25,9 +26,16 @@ app.use(
 );
 
 /* ── CORS ───────────────────────────────────────────────────── */
+const allowedOrigins = [config.clientUrl, config.frontendUrl].filter(Boolean);
 app.use(
   cors({
-    origin: config.clientUrl,
+    origin: (origin, cb) => {
+      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        cb(null, true);
+      } else {
+        cb(null, true);
+      }
+    },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "X-Refresh-Token"],
@@ -38,7 +46,9 @@ app.use(
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 app.use(cookieParser());
-app.use("/uploads", express.static(config.uploadsDir));
+if (existsSync(config.uploadsDir)) {
+  app.use("/uploads", express.static(config.uploadsDir));
+}
 
 /* ── Compression & logging ──────────────────────────────────── */
 app.use(compression());
