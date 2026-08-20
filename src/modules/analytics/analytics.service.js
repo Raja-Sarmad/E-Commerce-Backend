@@ -226,7 +226,7 @@ async function getRevenueComparison() {
   const lastYearStart = new Date(now.getFullYear() - 1, 0, 1);
   const lastYearEnd = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
 
-  const [thisMonth, lastMonth, thisYear, lastYear, thisMonthOrders, lastMonthOrders, thisMonthCustomers, lastMonthCustomers] = await Promise.all([
+  const [thisMonth, lastMonth, thisYear, lastYear, thisMonthCustomers, lastMonthCustomers, thisMonthOrders, lastMonthOrders] = await Promise.all([
     Order.aggregate([
       { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: thisMonthStart } } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
