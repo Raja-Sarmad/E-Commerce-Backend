@@ -1,0 +1,55 @@
+{
+  "name": "novamart-backend",
+  "version": "1.0.0",
+  "description": "NovaMart E-Commerce REST API — modular, secure, production-ready Express + MongoDB backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "nodemon server.js",
+    "start": "node server.js",
+    "seed": "node src/seed/seed.js",
+    "seed:admin": "node src/seed/seed-admin.js",
+    "seed:user": "node src/seed/seed-user.js",
+    "seed:data": "node src/seed/seed-data.js",
+    "seed:destroy": "node src/seed/seed.js --destroy",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [
+    "ecommerce",
+    "express",
+    "mongodb",
+    "mongoose",
+    "jwt",
+    "rest-api"
+  ],
+  "author": "NovaMart",
+  "license": "ISC",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cloudinary": "^2.5.1",
+    "compression": "^1.7.5",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "express-mongo-sanitize": "^2.2.0",
+    "express-rate-limit": "^7.5.0",
+    "express-validator": "^7.2.1",
+    "helmet": "^8.0.0",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.9.5",
+    "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.10.0",
+    "slugify": "^1.6.6"
+  },
+  "devDependencies": {
+    "eslint": "^9.18.0",
+    "mongodb-memory-server": "^11.2.0",
+    "nodemon": "^3.1.9"
+  }
+}
