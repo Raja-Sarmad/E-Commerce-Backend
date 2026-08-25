@@ -16,8 +16,8 @@ build/
 uploads/*
 !uploads/.gitkeep
 
-# Logs
-logs/
+# Logs (runtime only — keep src/modules/logs/ in git for the API module)
+/logs/
 *.log
 
 # OS / Editor

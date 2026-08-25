@@ -2,13 +2,26 @@ import mongoose from "mongoose";
 
 let isConnected = false;
 
+function getMongoUri() {
+  const uri = process.env.MONGO_URI?.trim();
+  if (!uri) {
+    throw new Error(
+      "MONGO_URI env var missing — add your MongoDB Atlas URI in Vercel → Settings → Environment Variables"
+    );
+  }
+  if (/127\.0\.0\.1|localhost/i.test(uri)) {
+    throw new Error(
+      "MONGO_URI points to localhost — on Vercel use your MongoDB Atlas URI (mongodb+srv://...), not the local .env.example value"
+    );
+  }
+  return uri;
+}
+
 async function connectDB() {
   if (isConnected && mongoose.connections[0]?.readyState === 1) return;
-  if (!process.env.MONGO_URI) {
-    throw new Error("MONGO_URI env var missing — set it in Vercel dashboard");
-  }
+  const uri = getMongoUri();
   mongoose.set("strictQuery", true);
-  await mongoose.connect(process.env.MONGO_URI, {
+  await mongoose.connect(uri, {
     autoIndex: false,
     serverSelectionTimeoutMS: 10000,
     maxPoolSize: 1,
