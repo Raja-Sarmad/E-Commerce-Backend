@@ -7,13 +7,13 @@ import config from "../../config/index.js";
 const register = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.register(req.body);
   setAuthCookies(res, { accessToken, refreshToken });
-  return sendResponse(res, 201, "Account created successfully. Please verify your email.", user);
+  return sendResponse(res, 201, "Account created successfully. Please verify your email.", user, undefined, accessToken);
 });
 
 const login = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.login(req.body);
   setAuthCookies(res, { accessToken, refreshToken });
-  return sendResponse(res, 200, "Logged in successfully.", user);
+  return sendResponse(res, 200, "Logged in successfully.", user, undefined, accessToken);
 });
 
 const refresh = asyncHandler(async (req, res) => {

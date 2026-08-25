@@ -30,11 +30,15 @@ const allowedOrigins = [config.clientUrl, config.frontendUrl].filter(Boolean);
 app.use(
   cors({
     origin: (origin, cb) => {
-      if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
-        cb(null, true);
-      } else {
-        cb(null, true);
+      if (!origin) return cb(null, true);
+      if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (config.isDev && /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
+        return cb(null, true);
       }
+      if (config.isProd && /^https:\/\/[\w.-]+\.vercel\.app$/.test(origin)) {
+        return cb(null, true);
+      }
+      return cb(new Error(`Origin ${origin} is not allowed by CORS`));
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],

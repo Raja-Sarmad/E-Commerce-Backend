@@ -40,8 +40,8 @@ const config = {
   },
 
   cookie: {
-    secure: String(process.env.COOKIE_SECURE) === "true" || isProd,
-    sameSite: (process.env.COOKIE_SAME_SITE || "lax"),
+    secure: String(process.env.COOKIE_SECURE) !== "false" && (isProd || String(process.env.COOKIE_SECURE) === "true"),
+    sameSite: process.env.COOKIE_SAME_SITE || (isProd ? "none" : "lax"),
     accessName: process.env.COOKIE_ACCESS_NAME || "access_token",
     refreshName: process.env.COOKIE_REFRESH_NAME || "refresh_token",
     accessMaxAgeMs: 15 * 60 * 1000,
