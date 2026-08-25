@@ -230,11 +230,29 @@ async function seedContent() {
 }
 
 async function seedDemoCustomersAndOrders() {
-  const customers = await User.insertMany([
+  const demoCustomers = [
     { name: "Rachel Greene", email: "rachel@example.com", password: "Customer@123", role: ROLES.CUSTOMER, isEmailVerified: true },
     { name: "James Carter", email: "james@example.com", password: "Customer@123", role: ROLES.CUSTOMER, isEmailVerified: true },
     { name: "Sofia Marchetti", email: "sofia@example.com", password: "Customer@123", role: ROLES.CUSTOMER, isEmailVerified: true },
-  ]).catch((err) => (err.code === 11000 ? User.find({ role: ROLES.CUSTOMER }).limit(3) : Promise.reject(err)));
+  ];
+
+  const customers = [];
+  for (const data of demoCustomers) {
+    const hashedPassword = await bcrypt.hash(data.password, 10);
+    const user = await User.findOneAndUpdate(
+      { email: data.email },
+      {
+        $set: {
+          name: data.name,
+          password: hashedPassword,
+          role: data.role,
+          isEmailVerified: data.isEmailVerified,
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true }
+    );
+    customers.push(user);
+  }
 
   const products = await Product.find().limit(3);
   if (customers.length && products.length) {
