@@ -134,6 +134,10 @@ async function listMyOrders(userId, query) {
 
   const filter = { user: userId };
   if (query.status && ORDERABLE_STATUS.has(query.status)) filter.status = query.status;
+  if (query.search) {
+    filter.number = new RegExp(query.search.trim(), "i");
+  }
+  applyDateRangeFilter(filter, query);
 
   const [orders, total] = await Promise.all([
     Order.find(filter).sort(sort).skip(skip).limit(limit).lean(),
