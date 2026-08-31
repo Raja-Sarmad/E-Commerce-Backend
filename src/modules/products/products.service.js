@@ -6,6 +6,12 @@ import { getPagination, getPaginationMeta, getSort } from "../../utils/paginatio
 import { uploadMany, resolveRemoteImages, deleteFromCloudinary } from "../../utils/cloudinary.js";
 import config from "../../config/index.js";
 import { checkLowStock } from "../notifications/notifications.service.js";
+import {
+  stableQueryKey,
+  getCatalogCache,
+  setCatalogCache,
+  clearCatalogCache,
+} from "../../utils/catalogCache.js";
 
 const productImageFolder = `${config.cloudinary.folder}/products`;
 
@@ -101,6 +107,12 @@ function buildAdminFilter(query) {
 }
 
 async function listProducts(query, { admin = false } = {}) {
+  if (!admin) {
+    const cacheKey = stableQueryKey(query);
+    const cached = getCatalogCache("products", cacheKey);
+    if (cached) return cached;
+  }
+
   if (!admin && query.bestSeller === "true") {
     await ensureTotalSoldSynced();
   }
@@ -121,10 +133,16 @@ async function listProducts(query, { admin = false } = {}) {
     Product.countDocuments(filter),
   ]);
 
-  return {
+  const result = {
     products,
     meta: getPaginationMeta({ page, limit, total, totalPages: Math.ceil(total / limit) }),
   };
+
+  if (!admin) {
+    setCatalogCache("products", stableQueryKey(query), result);
+  }
+
+  return result;
 }
 
 async function getProductById(productId, { admin = false } = {}) {
@@ -155,6 +173,17 @@ async function getRelatedProducts(product, limit = 4) {
   })
     .limit(limit)
     .lean();
+}
+
+async function getProductWithRelatedBySlug(slug) {
+  const cached = getCatalogCache("product-slug", slug);
+  if (cached) return cached;
+
+  const product = await getProductBySlug(slug);
+  const related = await getRelatedProducts(product);
+  const result = { product, related };
+  setCatalogCache("product-slug", slug, result);
+  return result;
 }
 
 async function createProduct(data, files = []) {
@@ -235,6 +264,7 @@ async function createProduct(data, files = []) {
   const product = await Product.create({ ...cleanData, slug, images, publicIds });
 
   await checkLowStock(product);
+  clearCatalogCache();
   return product;
 }
 
@@ -330,6 +360,7 @@ async function updateProduct(productId, data, files = []) {
 
   await product.save();
   await checkLowStock(product);
+  clearCatalogCache();
   return product;
 }
 
@@ -341,6 +372,7 @@ async function deleteProduct(productId) {
     await deleteFromCloudinary(publicId);
   }
   await product.deleteOne();
+  clearCatalogCache();
   return product;
 }
 
@@ -353,6 +385,7 @@ async function removeImage(productId, publicId) {
   product.publicIds = product.publicIds.filter((p) => p !== publicId);
   await deleteFromCloudinary(publicId);
   await product.save();
+  clearCatalogCache();
   return product;
 }
 
@@ -360,6 +393,7 @@ export {
   listProducts,
   getProductById,
   getProductBySlug,
+  getProductWithRelatedBySlug,
   getRelatedProducts,
   createProduct,
   updateProduct,

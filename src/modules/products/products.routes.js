@@ -6,6 +6,7 @@ import { authorize } from "../../middlewares/authorize.js";
 import { uploadMultiple } from "../../middlewares/multer.js";
 import { ROLES } from "../../constants/index.js";
 import * as productController from "./products.controller.js";
+import cacheHeaders from "../../middlewares/cacheHeaders.js";
 import {
   mongoIdRule,
   createProductRules,
@@ -13,9 +14,9 @@ import {
 } from "./products.validation.js";
 
 /* ── Public ─────────────────────────────────────────────────── */
-router.get("/", productController.listProducts);
-router.get("/slug/:slug", productController.getProductBySlug);
-router.get("/:id", mongoIdRule, productController.getProduct);
+router.get("/", cacheHeaders(60), productController.listProducts);
+router.get("/slug/:slug", cacheHeaders(60), productController.getProductBySlug);
+router.get("/:id", mongoIdRule, cacheHeaders(60), productController.getProduct);
 
 /* ── Admin ──────────────────────────────────────────────────── */
 router.use(

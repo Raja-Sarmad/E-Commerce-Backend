@@ -20,8 +20,7 @@ const getProduct = asyncHandler(async (req, res) => {
 });
 
 const getProductBySlug = asyncHandler(async (req, res) => {
-  const product = await productService.getProductBySlug(req.params.slug);
-  const related = await productService.getRelatedProducts(product);
+  const { product, related } = await productService.getProductWithRelatedBySlug(req.params.slug);
   return sendResponse(res, 200, "Product fetched successfully.", { ...product.toJSON(), related });
 });
 

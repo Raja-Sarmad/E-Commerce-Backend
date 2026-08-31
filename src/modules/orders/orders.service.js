@@ -8,6 +8,7 @@ import * as couponService from "../coupons/coupons.service.js";
 import * as settingsService from "../settings/settings.service.js";
 import { createNotification } from "../notifications/notifications.service.js";
 import { sendTemplateEmail, orderConfirmationEmail } from "../../utils/email.js";
+import { clearCatalogCache } from "../../utils/catalogCache.js";
 
 const ORDERABLE_STATUS = new Set(["pending", "processing", "shipped", "delivered", "cancelled"]);
 
@@ -87,6 +88,7 @@ async function createOrder(userId, data) {
       $inc: { stock: -item.quantity, totalSold: item.quantity },
     });
   }
+  clearCatalogCache();
 
   // record coupon usage
   if (coupon) await couponService.recordUsage(coupon._id, userId);
@@ -193,6 +195,7 @@ async function updateOrderStatus(orderId, status, note = "") {
         $inc: { stock: item.quantity, totalSold: -item.quantity },
       });
     }
+    clearCatalogCache();
   }
 
   await createNotification({
@@ -240,6 +243,7 @@ async function cancelOrder(userId, orderId, reason = "") {
       $inc: { stock: item.quantity, totalSold: -item.quantity },
     });
   }
+  clearCatalogCache();
 
   return order;
 }

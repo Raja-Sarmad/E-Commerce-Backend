@@ -2,8 +2,7 @@ import mongoose from "mongoose";
 import config from "./index.js";
 
 /**
- * Establishes a connection to MongoDB.
- * Automatically handles retry on initial connection failure.
+ * Establishes a connection to MongoDB with pooling for high concurrency.
  */
 async function connectDB() {
   mongoose.set("strictQuery", true);
@@ -24,7 +23,11 @@ async function connectDB() {
     await mongoose.connect(config.db.uri, {
       autoIndex: config.isDev,
       serverSelectionTimeoutMS: 10000,
+      maxPoolSize: config.db.maxPoolSize,
+      minPoolSize: config.db.minPoolSize,
+      socketTimeoutMS: 45000,
     });
+    console.log(`[db] Pool size ${config.db.minPoolSize}-${config.db.maxPoolSize}`);
   } catch (err) {
     console.error("[db] Initial connection failed:", err.message);
     if (config.isProd) process.exit(1);

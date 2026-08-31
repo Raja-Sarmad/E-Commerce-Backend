@@ -28,6 +28,8 @@ const config = {
     uri:
       process.env.MONGO_URI ||
       "mongodb://127.0.0.1:27017/novamart",
+    maxPoolSize: numberEnv("MONGO_MAX_POOL_SIZE", 50),
+    minPoolSize: numberEnv("MONGO_MIN_POOL_SIZE", 5),
   },
 
   jwt: {
@@ -79,8 +81,12 @@ const config = {
 
   rateLimit: {
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: Number(process.env.RATE_LIMIT_MAX) || 200,
-    authMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || 20,
+    max: Number(process.env.RATE_LIMIT_MAX) || (isProd ? 2000 : 200),
+    authMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || (isProd ? 100 : 20),
+  },
+
+  cache: {
+    catalogTtlMs: numberEnv("CATALOG_CACHE_TTL_MS", 60_000),
   },
 
   logLevel: process.env.LOG_LEVEL || "dev",

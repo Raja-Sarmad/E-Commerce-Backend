@@ -8,6 +8,7 @@ import { ROLES } from "../../constants/index.js";
 import * as brandController from "./brands.controller.js";
 import { body, param } from "express-validator";
 import validate from "../../middlewares/validate.js";
+import cacheHeaders from "../../middlewares/cacheHeaders.js";
 
 const mongoIdRule = [param("id").isMongoId().withMessage("Invalid brand id."), validate];
 const createRules = [
@@ -16,9 +17,9 @@ const createRules = [
 ];
 
 /* ── Public ─────────────────────────────────────────────────── */
-router.get("/", brandController.listBrands);
-router.get("/all", brandController.listAllBrands);
-router.get("/:id", mongoIdRule, brandController.getBrandById);
+router.get("/", cacheHeaders(120), brandController.listBrands);
+router.get("/all", cacheHeaders(120), brandController.listAllBrands);
+router.get("/:id", mongoIdRule, cacheHeaders(120), brandController.getBrandById);
 
 /* ── Admin ──────────────────────────────────────────────────── */
 router.use("/", authenticate, authorize(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER));

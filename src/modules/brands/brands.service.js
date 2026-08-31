@@ -2,8 +2,20 @@ import Brand from "./brands.model.js";
 import AppError from "../../utils/AppError.js";
 import { createSlug } from "../../utils/slugify.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import {
+  stableQueryKey,
+  getCatalogCache,
+  setCatalogCache,
+  clearCatalogCache,
+} from "../../utils/catalogCache.js";
 
 async function listBrands(query, { admin = false } = {}) {
+  if (!admin) {
+    const cacheKey = stableQueryKey(query);
+    const cached = getCatalogCache("brands", cacheKey);
+    if (cached) return cached;
+  }
+
   const { page, limit, skip } = getPagination(query);
   const sort = getSort(query, ["name", "createdAt"]);
 
@@ -16,14 +28,25 @@ async function listBrands(query, { admin = false } = {}) {
     Brand.countDocuments(filter),
   ]);
 
-  return {
+  const result = {
     brands,
     meta: getPaginationMeta({ page, limit, total, totalPages: Math.ceil(total / limit) }),
   };
+
+  if (!admin) {
+    setCatalogCache("brands", stableQueryKey(query), result);
+  }
+
+  return result;
 }
 
 async function listAllBrands() {
-  return Brand.find({ isActive: true }).sort({ name: 1 }).lean();
+  const cached = getCatalogCache("brands-all", "public");
+  if (cached) return cached;
+
+  const brands = await Brand.find({ isActive: true }).sort({ name: 1 }).lean();
+  setCatalogCache("brands-all", "public", brands);
+  return brands;
 }
 
 async function getBrandById(id) {
@@ -34,7 +57,9 @@ async function getBrandById(id) {
 
 async function createBrand(data) {
   const slug = data.slug || createSlug(data.name);
-  return Brand.create({ ...data, slug });
+  const brand = await Brand.create({ ...data, slug });
+  clearCatalogCache();
+  return brand;
 }
 
 async function updateBrand(id, data) {
@@ -46,12 +71,14 @@ async function updateBrand(id, data) {
     if (data[k] !== undefined) brand[k] = data[k];
   });
   await brand.save();
+  clearCatalogCache();
   return brand;
 }
 
 async function deleteBrand(id) {
   const brand = await Brand.findByIdAndDelete(id);
   if (!brand) throw new AppError("Brand not found.", 404);
+  clearCatalogCache();
   return brand;
 }
 
