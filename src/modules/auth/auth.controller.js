@@ -5,9 +5,9 @@ import { logFromRequest } from "../logs/logs.service.js";
 import * as authService from "./auth.service.js";
 import config from "../../config/index.js";
 
-const sendPhoneOtp = asyncHandler(async (req, res) => {
-  const result = await authService.sendPhoneOtp(req.body.phone);
-  return sendResponse(res, 200, "OTP sent to your phone.", result);
+const sendEmailOtp = asyncHandler(async (req, res) => {
+  const result = await authService.sendEmailOtp(req.body.email);
+  return sendResponse(res, 200, "OTP sent to your email.", result);
 });
 
 const register = asyncHandler(async (req, res) => {
@@ -20,7 +20,7 @@ const register = asyncHandler(async (req, res) => {
     level: "success",
     user: user?.name || user?.email,
   });
-  return sendResponse(res, 201, "Account created successfully. Please verify your email.", user, undefined, accessToken);
+  return sendResponse(res, 201, "Account created successfully.", user, undefined, accessToken);
 });
 
 const login = asyncHandler(async (req, res) => {
@@ -87,7 +87,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export {
-  sendPhoneOtp,
+  sendEmailOtp,
   register,
   login,
   refresh,

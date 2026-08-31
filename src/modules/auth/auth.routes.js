@@ -6,7 +6,7 @@ import { authLimiter, passwordResetLimiter } from "../../middlewares/rateLimiter
 import * as authController from "./auth.controller.js";
 import {
   registerRules,
-  phoneOtpRules,
+  emailOtpRules,
   loginRules,
   refreshRules,
   emailOnlyRules,
@@ -15,7 +15,7 @@ import {
 } from "./auth.validation.js";
 
 /* ── Public ─────────────────────────────────────────────────── */
-router.post("/phone-otp", authLimiter, phoneOtpRules, authController.sendPhoneOtp);
+router.post("/email-otp", authLimiter, emailOtpRules, authController.sendEmailOtp);
 router.post("/register", authLimiter, registerRules, authController.register);
 router.post("/login", authLimiter, loginRules, authController.login);
 router.post("/refresh-token", refreshRules, authController.refresh);

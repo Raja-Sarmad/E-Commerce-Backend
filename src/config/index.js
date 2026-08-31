@@ -77,12 +77,6 @@ const config = {
     adminPhone: process.env.SEED_ADMIN_PHONE || "+1 555 010 0000",
   },
 
-  twilio: {
-    accountSid: process.env.TWILIO_ACCOUNT_SID || "",
-    authToken: process.env.TWILIO_AUTH_TOKEN || "",
-    fromNumber: process.env.TWILIO_PHONE_NUMBER || "",
-  },
-
   rateLimit: {
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
     max: Number(process.env.RATE_LIMIT_MAX) || 200,

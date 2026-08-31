@@ -49,6 +49,13 @@ const passwordResetEmail = (name, url) => `
   <p>If you didn't request this, you can safely ignore this email.</p>
 `;
 
+const registrationOtpEmail = (code) => `
+  <h2>Your NovaMart verification code</h2>
+  <p>Use this code to complete your registration. It expires in 10 minutes.</p>
+  <p style="font-size:28px;font-weight:bold;letter-spacing:6px;margin:24px 0;">${code}</p>
+  <p>If you didn't request this, you can safely ignore this email.</p>
+`;
+
 const orderConfirmationEmail = (name, orderNumber, total) => `
   <h2>Order confirmed 🎉</h2>
   <p>Hi ${name},</p>
@@ -62,5 +69,6 @@ export {
   welcomeEmail,
   verificationEmail,
   passwordResetEmail,
+  registrationOtpEmail,
   orderConfirmationEmail,
 };

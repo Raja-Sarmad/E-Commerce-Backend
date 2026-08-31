@@ -1,8 +1,8 @@
 import mongoose from "mongoose";
 
-const phoneOtpSchema = new mongoose.Schema(
+const emailOtpSchema = new mongoose.Schema(
   {
-    phone: { type: String, required: true, index: true },
+    email: { type: String, required: true, lowercase: true, trim: true, index: true },
     codeHash: { type: String, required: true },
     expiresAt: { type: Date, required: true, index: true },
     attempts: { type: Number, default: 0 },
@@ -11,8 +11,8 @@ const phoneOtpSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-phoneOtpSchema.index({ phone: 1, createdAt: -1 });
+emailOtpSchema.index({ email: 1, createdAt: -1 });
 
-const PhoneOtp = mongoose.model("PhoneOtp", phoneOtpSchema);
+const EmailOtp = mongoose.model("EmailOtp", emailOtpSchema);
 
-export default PhoneOtp;
+export default EmailOtp;

@@ -1,13 +1,6 @@
 import { body, param } from "express-validator";
 import validate from "../../middlewares/validate.js";
 
-const phone = body("phone")
-  .trim()
-  .notEmpty()
-  .withMessage("Phone number is required.")
-  .isLength({ min: 10, max: 20 })
-  .withMessage("Please enter a valid phone number.");
-
 const otp = body("otp")
   .trim()
   .notEmpty()
@@ -32,12 +25,11 @@ const registerRules = [
     .withMessage("Name must be 2-80 characters."),
   email,
   password,
-  phone,
   otp,
   validate,
 ];
 
-const phoneOtpRules = [phone, validate];
+const emailOtpRules = [email, validate];
 
 const loginRules = [
   email,
@@ -67,7 +59,7 @@ const verifyRules = [
 
 export {
   registerRules,
-  phoneOtpRules,
+  emailOtpRules,
   loginRules,
   refreshRules,
   emailOnlyRules,

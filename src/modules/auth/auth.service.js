@@ -1,5 +1,5 @@
 import User from "../users/users.model.js";
-import PhoneOtp from "./phone-otp.model.js";
+import EmailOtp from "./email-otp.model.js";
 import AppError from "../../utils/AppError.js";
 import bcrypt from "bcryptjs";
 import {
@@ -9,55 +9,76 @@ import {
   verifyOtpToken,
   verifyRefreshToken,
 } from "../../utils/token.js";
-import { sendEmail, verificationEmail, passwordResetEmail } from "../../utils/email.js";
-import { sendSms } from "../../utils/sms.js";
-import { normalizePhone, isValidPhone, toE164 } from "../../utils/phone.js";
+import {
+  sendEmail,
+  verificationEmail,
+  passwordResetEmail,
+  registrationOtpEmail,
+  welcomeEmail,
+} from "../../utils/email.js";
 import config from "../../config/index.js";
 
 function generateOtpCode() {
   return String(Math.floor(100000 + Math.random() * 900000));
 }
 
-async function sendPhoneOtp(phone) {
-  const normalized = normalizePhone(phone);
-  if (!isValidPhone(normalized)) {
-    throw new AppError("Please enter a valid phone number (10–15 digits).", 400);
+function isMailConfigured() {
+  return Boolean(config.mail.user && config.mail.pass);
+}
+
+async function sendEmailOtp(email) {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  const existing = await User.findOne({ email: normalizedEmail }).lean();
+  if (existing) {
+    throw new AppError("An account with this email already exists.", 409);
   }
 
   const code = generateOtpCode();
   const codeHash = await bcrypt.hash(code, 10);
 
-  await PhoneOtp.deleteMany({ phone: normalized });
-  await PhoneOtp.create({
-    phone: normalized,
+  await EmailOtp.deleteMany({ email: normalizedEmail });
+  await EmailOtp.create({
+    email: normalizedEmail,
     codeHash,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
 
-  const smsResult = await sendSms(
-    toE164(normalized),
-    `Your NovaMart verification code is ${code}. Valid for 10 minutes.`
-  );
+  const mailResult = await sendEmail({
+    to: normalizedEmail,
+    subject: "Your NovaMart registration code",
+    html: registrationOtpEmail(code),
+    text: `Your NovaMart registration code is ${code}. Valid for 10 minutes.`,
+  });
 
-  if (!smsResult.ok && !config.isDev) {
-    throw new AppError(smsResult.error || "Could not send OTP. Try again later.", 503);
+  if (!mailResult.ok) {
+    if (config.isDev) {
+      console.log(`[email-otp:dev] ${normalizedEmail} -> ${code}`);
+      return { sent: true, devMode: true, devOtp: code };
+    }
+    throw new AppError(
+      isMailConfigured()
+        ? "Could not send OTP email. Try again later."
+        : "Email service is not configured. Set MAIL_USER and MAIL_PASS on the server.",
+      503
+    );
   }
 
   return {
     sent: true,
-    devMode: smsResult.devMode ?? false,
-    ...(config.isDev && (smsResult.devMode || !smsResult.ok) ? { devOtp: code } : {}),
+    devMode: false,
+    ...(config.isDev ? { devOtp: code } : {}),
   };
 }
 
-async function verifyPhoneOtp(phone, otp) {
-  const normalized = normalizePhone(phone);
+async function verifyEmailOtp(email, otp) {
+  const normalizedEmail = email.toLowerCase().trim();
   const code = String(otp ?? "").trim();
   if (!/^\d{6}$/.test(code)) {
     throw new AppError("Please enter the 6-digit OTP code.", 400);
   }
 
-  const record = await PhoneOtp.findOne({ phone: normalized, verified: false }).sort({
+  const record = await EmailOtp.findOne({ email: normalizedEmail, verified: false }).sort({
     createdAt: -1,
   });
   if (!record) {
@@ -86,45 +107,29 @@ async function verifyPhoneOtp(phone, otp) {
  * Register a new user (role customer by default).
  * Returns { user, accessToken, refreshToken, emailSent }.
  */
-async function register({ name, email, password, phone, otp }) {
+async function register({ name, email, password, otp }) {
   const normalizedEmail = email.toLowerCase().trim();
-  const normalizedPhone = normalizePhone(phone);
 
-  if (!isValidPhone(normalizedPhone)) {
-    throw new AppError("Please enter a valid phone number (10–15 digits).", 400);
-  }
-
-  await verifyPhoneOtp(normalizedPhone, otp);
+  await verifyEmailOtp(normalizedEmail, otp);
 
   const existing = await User.findOne({ email: normalizedEmail }).lean();
   if (existing) {
     throw new AppError("An account with this email already exists.", 409);
   }
 
-  const phoneTaken = await User.findOne({ phone: normalizedPhone }).lean();
-  if (phoneTaken) {
-    throw new AppError("An account with this phone number already exists.", 409);
-  }
-
   const user = await User.create({
     name,
     email: normalizedEmail,
     password,
-    phone: normalizedPhone,
-    isPhoneVerified: true,
+    isEmailVerified: true,
   });
 
-  await PhoneOtp.deleteMany({ phone: normalizedPhone });
+  await EmailOtp.deleteMany({ email: normalizedEmail });
 
-  const emailVerificationToken = signOtpToken({ _id: user._id, purpose: "email_verify" }, "1h");
-  user.emailVerificationToken = emailVerificationToken;
-  await user.save({ validateBeforeSave: false });
-
-  const verifyUrl = `${config.frontendUrl}/verify-email?token=${emailVerificationToken}`;
   const emailSent = await sendEmail({
     to: user.email,
-    subject: "Verify your email",
-    html: verificationEmail(user.name, verifyUrl),
+    subject: "Welcome to NovaMart",
+    html: welcomeEmail(user.name),
   });
 
   const payload = { _id: user._id, role: user.role };
@@ -288,7 +293,7 @@ async function resetPassword(token, newPassword) {
 }
 
 export {
-  sendPhoneOtp,
+  sendEmailOtp,
   register,
   login,
   refresh,
