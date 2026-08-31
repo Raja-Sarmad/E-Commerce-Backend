@@ -40,6 +40,7 @@ const userSchema = new mongoose.Schema(
       select: false,
     },
     phone: { type: String, trim: true, default: "" },
+    isPhoneVerified: { type: Boolean, default: false },
     avatar: { type: String, default: "" },
     publicId: { type: String, default: "" },
     role: {

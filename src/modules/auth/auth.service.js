@@ -1,5 +1,7 @@
 import User from "../users/users.model.js";
+import PhoneOtp from "./phone-otp.model.js";
 import AppError from "../../utils/AppError.js";
+import bcrypt from "bcryptjs";
 import {
   signAccessToken,
   signRefreshToken,
@@ -8,20 +10,111 @@ import {
   verifyRefreshToken,
 } from "../../utils/token.js";
 import { sendEmail, verificationEmail, passwordResetEmail } from "../../utils/email.js";
+import { sendSms } from "../../utils/sms.js";
+import { normalizePhone, isValidPhone, toE164 } from "../../utils/phone.js";
 import config from "../../config/index.js";
+
+function generateOtpCode() {
+  return String(Math.floor(100000 + Math.random() * 900000));
+}
+
+async function sendPhoneOtp(phone) {
+  const normalized = normalizePhone(phone);
+  if (!isValidPhone(normalized)) {
+    throw new AppError("Please enter a valid phone number (10–15 digits).", 400);
+  }
+
+  const code = generateOtpCode();
+  const codeHash = await bcrypt.hash(code, 10);
+
+  await PhoneOtp.deleteMany({ phone: normalized });
+  await PhoneOtp.create({
+    phone: normalized,
+    codeHash,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  });
+
+  const smsResult = await sendSms(
+    toE164(normalized),
+    `Your NovaMart verification code is ${code}. Valid for 10 minutes.`
+  );
+
+  if (!smsResult.ok && !config.isDev) {
+    throw new AppError(smsResult.error || "Could not send OTP. Try again later.", 503);
+  }
+
+  return {
+    sent: true,
+    devMode: smsResult.devMode ?? false,
+    ...(config.isDev && (smsResult.devMode || !smsResult.ok) ? { devOtp: code } : {}),
+  };
+}
+
+async function verifyPhoneOtp(phone, otp) {
+  const normalized = normalizePhone(phone);
+  const code = String(otp ?? "").trim();
+  if (!/^\d{6}$/.test(code)) {
+    throw new AppError("Please enter the 6-digit OTP code.", 400);
+  }
+
+  const record = await PhoneOtp.findOne({ phone: normalized, verified: false }).sort({
+    createdAt: -1,
+  });
+  if (!record) {
+    throw new AppError("OTP expired or not found. Request a new code.", 400);
+  }
+  if (record.expiresAt < new Date()) {
+    throw new AppError("OTP expired. Request a new code.", 400);
+  }
+  if (record.attempts >= 5) {
+    throw new AppError("Too many attempts. Request a new code.", 429);
+  }
+
+  const match = await bcrypt.compare(code, record.codeHash);
+  if (!match) {
+    record.attempts += 1;
+    await record.save();
+    throw new AppError("Invalid OTP code.", 400);
+  }
+
+  record.verified = true;
+  await record.save();
+  return true;
+}
 
 /**
  * Register a new user (role customer by default).
  * Returns { user, accessToken, refreshToken, emailSent }.
  */
-async function register({ name, email, password, phone }) {
+async function register({ name, email, password, phone, otp }) {
   const normalizedEmail = email.toLowerCase().trim();
+  const normalizedPhone = normalizePhone(phone);
+
+  if (!isValidPhone(normalizedPhone)) {
+    throw new AppError("Please enter a valid phone number (10–15 digits).", 400);
+  }
+
+  await verifyPhoneOtp(normalizedPhone, otp);
+
   const existing = await User.findOne({ email: normalizedEmail }).lean();
   if (existing) {
     throw new AppError("An account with this email already exists.", 409);
   }
 
-  const user = await User.create({ name, email: normalizedEmail, password, phone });
+  const phoneTaken = await User.findOne({ phone: normalizedPhone }).lean();
+  if (phoneTaken) {
+    throw new AppError("An account with this phone number already exists.", 409);
+  }
+
+  const user = await User.create({
+    name,
+    email: normalizedEmail,
+    password,
+    phone: normalizedPhone,
+    isPhoneVerified: true,
+  });
+
+  await PhoneOtp.deleteMany({ phone: normalizedPhone });
 
   const emailVerificationToken = signOtpToken({ _id: user._id, purpose: "email_verify" }, "1h");
   user.emailVerificationToken = emailVerificationToken;
@@ -195,6 +288,7 @@ async function resetPassword(token, newPassword) {
 }
 
 export {
+  sendPhoneOtp,
   register,
   login,
   refresh,

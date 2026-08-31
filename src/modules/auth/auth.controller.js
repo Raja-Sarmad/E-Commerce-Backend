@@ -5,6 +5,11 @@ import { logFromRequest } from "../logs/logs.service.js";
 import * as authService from "./auth.service.js";
 import config from "../../config/index.js";
 
+const sendPhoneOtp = asyncHandler(async (req, res) => {
+  const result = await authService.sendPhoneOtp(req.body.phone);
+  return sendResponse(res, 200, "OTP sent to your phone.", result);
+});
+
 const register = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.register(req.body);
   setAuthCookies(res, { accessToken, refreshToken });
@@ -13,6 +18,7 @@ const register = asyncHandler(async (req, res) => {
     action: "New account registered",
     details: user?.email ?? "",
     level: "success",
+    user: user?.name || user?.email,
   });
   return sendResponse(res, 201, "Account created successfully. Please verify your email.", user, undefined, accessToken);
 });
@@ -81,6 +87,7 @@ const resetPassword = asyncHandler(async (req, res) => {
 });
 
 export {
+  sendPhoneOtp,
   register,
   login,
   refresh,

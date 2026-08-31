@@ -15,7 +15,7 @@ function getClientIp(req) {
 
 function actorLabel(req) {
   if (!req?.user) return "Guest";
-  return req.user.email || req.user.name || String(req.user._id);
+  return req.user.name || req.user.email || String(req.user._id);
 }
 
 /**
@@ -31,11 +31,27 @@ async function logActivity({ type, user, action, details, ip, level, metadata })
 
 async function logFromRequest(
   req,
-  { type, action, details = "", level = "info", metadata } = {}
+  { type, action, details = "", level = "info", metadata, user: userOverride } = {}
 ) {
+  const label = userOverride ?? actorLabel(req);
+
+  try {
+    const dedupeActions = ["User logged out", "User logged in"];
+    if (dedupeActions.includes(action)) {
+      const recent = await LogEntry.findOne({
+        user: label,
+        action,
+        createdAt: { $gte: new Date(Date.now() - 10000) },
+      }).lean();
+      if (recent) return;
+    }
+  } catch {
+    // continue logging if dedupe check fails
+  }
+
   return logActivity({
     type,
-    user: actorLabel(req),
+    user: label,
     action,
     details,
     ip: getClientIp(req),
