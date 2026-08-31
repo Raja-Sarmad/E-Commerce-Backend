@@ -9,7 +9,7 @@ const createProductRules = [
   body("price").custom((v) => {
     const n = Number(v);
     if (isNaN(n)) throw new Error("Price must be a number.");
-    if (n < 0) throw new Error("Price cannot be negative.");
+    if (n <= 0) throw new Error("Price must be greater than 0.");
     return true;
   }),
   body("compareAtPrice").optional({ values: "falsy" }).custom((v) => {
@@ -82,7 +82,7 @@ const updateProductRules = [
   body("price").optional().custom((v) => {
     const n = Number(v);
     if (isNaN(n)) throw new Error("Price must be a number.");
-    if (n < 0) throw new Error("Price cannot be negative.");
+    if (n <= 0) throw new Error("Price must be greater than 0.");
     return true;
   }),
   body("images").optional().custom((v) => {

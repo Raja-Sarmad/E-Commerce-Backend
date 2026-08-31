@@ -209,7 +209,10 @@ async function createProduct(data, files = []) {
 
   const numberFields = ["price", "compareAtPrice", "stock", "lowStockThreshold", "discountPercent", "position"];
   numberFields.forEach((k) => {
-    if (cleanData[k] !== undefined && cleanData[k] !== "") cleanData[k] = Number(cleanData[k]);
+    if (cleanData[k] !== undefined && cleanData[k] !== "") {
+      const n = Number(cleanData[k]);
+      cleanData[k] = k === "price" || k === "compareAtPrice" ? Math.max(0, n) : n;
+    }
   });
 
   const arrayFields = ["features", "tags", "colors", "sizes"];
@@ -289,7 +292,10 @@ async function updateProduct(productId, data, files = []) {
 
   const numberFields = ["price", "compareAtPrice", "stock", "lowStockThreshold", "discountPercent", "position"];
   numberFields.forEach((k) => {
-    if (cleanData[k] !== undefined && cleanData[k] !== "") cleanData[k] = Number(cleanData[k]);
+    if (cleanData[k] !== undefined && cleanData[k] !== "") {
+      const n = Number(cleanData[k]);
+      cleanData[k] = k === "price" || k === "compareAtPrice" ? Math.max(0, n) : n;
+    }
   });
 
   const arrayFields = ["features", "tags", "colors", "sizes"];
