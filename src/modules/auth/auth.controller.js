@@ -1,18 +1,32 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
 import { setAuthCookies, clearAuthCookies } from "../../utils/cookie.js";
+import { logFromRequest } from "../logs/logs.service.js";
 import * as authService from "./auth.service.js";
 import config from "../../config/index.js";
 
 const register = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.register(req.body);
   setAuthCookies(res, { accessToken, refreshToken });
+  await logFromRequest(req, {
+    type: "login",
+    action: "New account registered",
+    details: user?.email ?? "",
+    level: "success",
+  });
   return sendResponse(res, 201, "Account created successfully. Please verify your email.", user, undefined, accessToken);
 });
 
 const login = asyncHandler(async (req, res) => {
   const { user, accessToken, refreshToken } = await authService.login(req.body);
   setAuthCookies(res, { accessToken, refreshToken });
+  req.user = user;
+  await logFromRequest(req, {
+    type: "login",
+    action: "User logged in",
+    details: user?.role ?? "customer",
+    level: "success",
+  });
   return sendResponse(res, 200, "Logged in successfully.", user, undefined, accessToken);
 });
 
@@ -30,6 +44,12 @@ const refresh = asyncHandler(async (req, res) => {
 const logout = asyncHandler(async (req, res) => {
   if (req.user && req.user._id) {
     await authService.logout(req.user._id);
+    await logFromRequest(req, {
+      type: "login",
+      action: "User logged out",
+      details: req.user.role ?? "",
+      level: "info",
+    });
   }
   clearAuthCookies(res);
   return sendResponse(res, 200, "Logged out successfully.");

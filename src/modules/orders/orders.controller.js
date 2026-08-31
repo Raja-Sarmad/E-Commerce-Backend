@@ -1,9 +1,16 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
+import { logFromRequest } from "../logs/logs.service.js";
 import * as orderService from "./orders.service.js";
 
 const createOrder = asyncHandler(async (req, res) => {
   const order = await orderService.createOrder(req.user._id, req.body);
+  await logFromRequest(req, {
+    type: "activity",
+    action: `Order placed #${order.number}`,
+    details: `Total: ${order.total}`,
+    level: "success",
+  });
   return sendResponse(res, 201, "Order placed successfully.", order);
 });
 
@@ -35,6 +42,12 @@ const getOrderByNumber = asyncHandler(async (req, res) => {
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const order = await orderService.updateOrderStatus(req.params.id, req.body.status, req.body.note);
+  await logFromRequest(req, {
+    type: "activity",
+    action: `Order #${order.number} status → ${order.status}`,
+    details: req.body.note || "",
+    level: order.status === "cancelled" ? "warning" : "info",
+  });
   return sendResponse(res, 200, "Order status updated successfully.", order);
 });
 

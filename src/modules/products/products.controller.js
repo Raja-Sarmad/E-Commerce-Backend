@@ -1,5 +1,6 @@
 import asyncHandler from "../../utils/asyncHandler.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
+import { logFromRequest } from "../logs/logs.service.js";
 import * as productService from "./products.service.js";
 
 const listProducts = asyncHandler(async (req, res) => {
@@ -31,16 +32,35 @@ const getAdminProduct = asyncHandler(async (req, res) => {
 
 const createProduct = asyncHandler(async (req, res) => {
   const product = await productService.createProduct(req.body, req.files);
+  await logFromRequest(req, {
+    type: "audit",
+    action: `Product created: ${product.name}`,
+    details: product.sku || product.slug,
+    level: "success",
+  });
   return sendResponse(res, 201, "Product created successfully.", product);
 });
 
 const updateProduct = asyncHandler(async (req, res) => {
   const product = await productService.updateProduct(req.params.id, req.body, req.files);
+  await logFromRequest(req, {
+    type: "audit",
+    action: `Product updated: ${product.name}`,
+    details: product.sku || product.slug,
+    level: "info",
+  });
   return sendResponse(res, 200, "Product updated successfully.", product);
 });
 
 const deleteProduct = asyncHandler(async (req, res) => {
+  const product = await productService.getProductById(req.params.id, { admin: true });
   await productService.deleteProduct(req.params.id);
+  await logFromRequest(req, {
+    type: "audit",
+    action: `Product deleted: ${product.name}`,
+    details: product.sku || product.slug,
+    level: "warning",
+  });
   return sendResponse(res, 200, "Product deleted successfully.");
 });
 
