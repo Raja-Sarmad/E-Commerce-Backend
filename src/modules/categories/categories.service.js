@@ -1,7 +1,24 @@
 import Category from "./categories.model.js";
+import Product from "../products/products.model.js";
 import AppError from "../../utils/AppError.js";
 import { createSlug } from "../../utils/slugify.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+
+async function attachLiveProductCounts(categories, { admin = false } = {}) {
+  if (!categories.length) return categories;
+
+  const productFilter = admin ? {} : { isActive: true };
+  const counts = await Product.aggregate([
+    { $match: productFilter },
+    { $group: { _id: "$categorySlug", count: { $sum: 1 } } },
+  ]);
+  const countMap = Object.fromEntries(counts.map((row) => [row._id, row.count]));
+
+  return categories.map((category) => ({
+    ...category,
+    count: countMap[category.slug] ?? 0,
+  }));
+}
 
 async function listCategories(query, { admin = false } = {}) {
   const { page, limit, skip } = getPagination(query);
@@ -12,10 +29,12 @@ async function listCategories(query, { admin = false } = {}) {
   if (query.search) filter.name = new RegExp(query.search.trim(), "i");
   if (query.featured === "true") filter.featured = true;
 
-  const [categories, total] = await Promise.all([
+  const [rows, total] = await Promise.all([
     Category.find(filter).sort(sort).skip(skip).limit(limit).lean(),
     Category.countDocuments(filter),
   ]);
+
+  const categories = await attachLiveProductCounts(rows, { admin });
 
   return {
     categories,
@@ -25,7 +44,8 @@ async function listCategories(query, { admin = false } = {}) {
 
 async function listAllCategories({ admin = false } = {}) {
   const filter = admin ? {} : { isActive: true };
-  return Category.find(filter).sort({ order: 1, name: 1 }).lean();
+  const categories = await Category.find(filter).sort({ order: 1, name: 1 }).lean();
+  return attachLiveProductCounts(categories, { admin });
 }
 
 async function getCategoryById(id) {
