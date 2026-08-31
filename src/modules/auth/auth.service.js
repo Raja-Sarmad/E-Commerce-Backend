@@ -10,11 +10,12 @@ import {
   verifyRefreshToken,
 } from "../../utils/token.js";
 import {
-  sendEmail,
-  verificationEmail,
-  passwordResetEmail,
+  sendTemplateEmail,
   registrationOtpEmail,
   welcomeEmail,
+  verificationEmail,
+  passwordResetEmail,
+  passwordChangedEmail,
 } from "../../utils/email.js";
 import config from "../../config/index.js";
 
@@ -44,12 +45,7 @@ async function sendEmailOtp(email) {
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
 
-  const mailResult = await sendEmail({
-    to: normalizedEmail,
-    subject: "Your NovaMart registration code",
-    html: registrationOtpEmail(code),
-    text: `Your NovaMart registration code is ${code}. Valid for 10 minutes.`,
-  });
+  const mailResult = await sendTemplateEmail(normalizedEmail, registrationOtpEmail(code));
 
   if (!mailResult.ok) {
     if (config.isDev) {
@@ -126,11 +122,7 @@ async function register({ name, email, password, otp }) {
 
   await EmailOtp.deleteMany({ email: normalizedEmail });
 
-  const emailSent = await sendEmail({
-    to: user.email,
-    subject: "Welcome to NovaMart",
-    html: welcomeEmail(user.name),
-  });
+  const emailSent = await sendTemplateEmail(user.email, welcomeEmail(user.name));
 
   const payload = { _id: user._id, role: user.role };
   const accessToken = signAccessToken(payload);
@@ -230,11 +222,7 @@ async function resendVerificationEmail(userId) {
   await user.save({ validateBeforeSave: false });
 
   const verifyUrl = `${config.frontendUrl}/verify-email?token=${emailVerificationToken}`;
-  const emailSent = await sendEmail({
-    to: user.email,
-    subject: "Verify your email",
-    html: verificationEmail(user.name, verifyUrl),
-  });
+  const emailSent = await sendTemplateEmail(user.email, verificationEmail(user.name, verifyUrl));
   return { emailSent };
 }
 
@@ -253,11 +241,7 @@ async function forgotPassword(email) {
   await user.save({ validateBeforeSave: false });
 
   const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
-  const emailSent = await sendEmail({
-    to: user.email,
-    subject: "Reset your password",
-    html: passwordResetEmail(user.name, resetUrl),
-  });
+  const emailSent = await sendTemplateEmail(user.email, passwordResetEmail(user.name, resetUrl));
   return { emailSent, sent: true };
 }
 
@@ -283,11 +267,7 @@ async function resetPassword(token, newPassword) {
   user.refreshToken = null;
   await user.save();
 
-  const welcome = await sendEmail({
-    to: user.email,
-    subject: "Password changed",
-    html: `<p>Hi ${user.name},</p><p>Your password has been successfully changed.</p>`,
-  });
+  const welcome = await sendTemplateEmail(user.email, passwordChangedEmail(user.name));
 
   return { user: user.toPublicJSON(), emailSent: welcome };
 }

@@ -2,25 +2,32 @@ import nodemailer from "nodemailer";
 import config from "./index.js";
 
 /**
- * SMTP transport built from env config.
- * Falls back to an Ethereal-style test account at runtime if no creds provided.
+ * Nodemailer SMTP transport from env (MAIL_HOST, MAIL_USER, MAIL_PASS, etc.).
  */
 function createTransport() {
-  if (config.mail.user && config.mail.pass) {
-    return nodemailer.createTransport({
-      host: config.mail.host,
-      port: config.mail.port,
-      secure: config.mail.secure,
-      auth: { user: config.mail.user, pass: config.mail.pass },
-    });
-  }
-  return nodemailer.createTransport({
+  const options = {
     host: config.mail.host,
     port: config.mail.port,
     secure: config.mail.secure,
-  });
+  };
+
+  if (config.mail.user && config.mail.pass) {
+    options.auth = { user: config.mail.user, pass: config.mail.pass };
+  }
+
+  if (!config.mail.secure && config.mail.port === 587) {
+    options.requireTLS = true;
+  }
+
+  return nodemailer.createTransport(options);
 }
 
-let transport = createTransport();
+const transport = createTransport();
+
+if (config.mail.user && config.mail.pass) {
+  console.log(`[email] SMTP ready -> ${config.mail.host}:${config.mail.port} as ${config.mail.user}`);
+} else {
+  console.warn("[email] MAIL_USER / MAIL_PASS not set — emails will fail in production.");
+}
 
 export { transport, createTransport };

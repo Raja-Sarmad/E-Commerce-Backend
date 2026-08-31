@@ -2,8 +2,7 @@ import { transport } from "../config/email.js";
 import config from "../config/index.js";
 
 /**
- * Generic sendEmail helper. Never throws in production paths — failures
- * are logged so core flows (register/login) don't break when SMTP is down.
+ * Send email via Nodemailer. Never throws — failures are logged.
  *
  * @param {{ to: string, subject: string, html: string, text?: string }} mail
  */
@@ -13,12 +12,15 @@ async function sendEmail({ to, subject, html, text }) {
     to,
     subject,
     html,
-    text,
+    text: text ?? stripHtml(html),
   };
 
   try {
     const info = await transport.sendMail(mailOptions);
     console.log(`[email] Sent "${subject}" -> ${to} (${info.messageId})`);
+    if (info.previewUrl) {
+      console.log(`[email] Preview: ${info.previewUrl}`);
+    }
     return { ok: true, messageId: info.messageId, previewUrl: info.previewUrl };
   } catch (err) {
     console.error(`[email] Failed to send "${subject}" -> ${to}:`, err.message);
@@ -26,49 +28,31 @@ async function sendEmail({ to, subject, html, text }) {
   }
 }
 
-const welcomeEmail = (name) => `
-  <h2>Welcome to ${config.seed.adminName.split(" ")[0]}Mart!</h2>
-  <p>Hi ${name},</p>
-  <p>Thanks for creating an account. We're thrilled to have you on board.</p>
-  <p>Happy shopping!</p>
-`;
+/** Send a rendered template { subject, html, text } to a recipient. */
+async function sendTemplateEmail(to, template) {
+  return sendEmail({
+    to,
+    subject: template.subject,
+    html: template.html,
+    text: template.text,
+  });
+}
 
-const verificationEmail = (name, url) => `
-  <h2>Verify your email</h2>
-  <p>Hi ${name},</p>
-  <p>Please confirm your email address by clicking the link below. This link expires in 1 hour.</p>
-  <p><a href="${url}" style="background:#2563eb;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;">Verify email</a></p>
-  <p>If the button doesn't work, paste this into your browser: ${url}</p>
-`;
+function stripHtml(html) {
+  return String(html)
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-const passwordResetEmail = (name, url) => `
-  <h2>Reset your password</h2>
-  <p>Hi ${name},</p>
-  <p>We received a request to reset your password. Click below to choose a new one. This link expires in 1 hour.</p>
-  <p><a href="${url}" style="background:#2563eb;color:#fff;padding:12px 20px;border-radius:6px;text-decoration:none;">Reset password</a></p>
-  <p>If you didn't request this, you can safely ignore this email.</p>
-`;
-
-const registrationOtpEmail = (code) => `
-  <h2>Your NovaMart verification code</h2>
-  <p>Use this code to complete your registration. It expires in 10 minutes.</p>
-  <p style="font-size:28px;font-weight:bold;letter-spacing:6px;margin:24px 0;">${code}</p>
-  <p>If you didn't request this, you can safely ignore this email.</p>
-`;
-
-const orderConfirmationEmail = (name, orderNumber, total) => `
-  <h2>Order confirmed 🎉</h2>
-  <p>Hi ${name},</p>
-  <p>Your order <strong>#${orderNumber}</strong> has been placed successfully.</p>
-  <p>Total: <strong>${total}</strong></p>
-  <p>We'll email you as soon as it ships.</p>
-`;
+export { sendEmail, sendTemplateEmail };
 
 export {
-  sendEmail,
+  registrationOtpEmail,
   welcomeEmail,
   verificationEmail,
   passwordResetEmail,
-  registrationOtpEmail,
+  passwordChangedEmail,
   orderConfirmationEmail,
-};
+} from "./email-templates.js";

@@ -7,7 +7,7 @@ import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import * as couponService from "../coupons/coupons.service.js";
 import * as settingsService from "../settings/settings.service.js";
 import { createNotification } from "../notifications/notifications.service.js";
-import { sendEmail, orderConfirmationEmail } from "../../utils/email.js";
+import { sendTemplateEmail, orderConfirmationEmail } from "../../utils/email.js";
 
 const ORDERABLE_STATUS = new Set(["pending", "processing", "shipped", "delivered", "cancelled"]);
 
@@ -104,11 +104,10 @@ async function createOrder(userId, data) {
     link: "/admin/orders",
   });
   const user = await User.findById(userId).lean();
-  await sendEmail({
-    to: user.email,
-    subject: `Order confirmation #${order.number}`,
-    html: orderConfirmationEmail(user.name, order.number, `$${total.toFixed(2)}`),
-  });
+  await sendTemplateEmail(
+    user.email,
+    orderConfirmationEmail(user.name, order.number, `$${total.toFixed(2)}`)
+  );
 
   return order;
 }
