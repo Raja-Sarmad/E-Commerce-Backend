@@ -1,4 +1,5 @@
 import Product from "./products.model.js";
+import Order from "../orders/orders.model.js";
 import AppError from "../../utils/AppError.js";
 import { createSlug } from "../../utils/slugify.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
@@ -29,13 +30,58 @@ function buildPublicFilter(query) {
     filter.tags = { $in: Array.isArray(query.tags) ? query.tags : [query.tags] };
   }
   if (query.featured === "true") filter.isFeatured = true;
-  if (query.bestSeller === "true") filter.isBestSeller = true;
+  if (query.bestSeller === "true") {
+    filter.$or = [{ totalSold: { $gt: 0 } }, { isBestSeller: true }];
+  }
   if (query.trending === "true") filter.isTrending = true;
   if (query.onSale === "true") filter.onSale = true;
   if (query.inStock === "true") filter.stock = { $gt: 0 };
   if (query.colors) filter.colors = { $in: [query.colors] };
 
   return filter;
+}
+
+let totalSoldSynced = false;
+
+async function syncTotalSoldFromOrders() {
+  const rows = await Order.aggregate([
+    { $match: { status: { $nin: ["cancelled"] } } },
+    { $unwind: "$items" },
+    {
+      $group: {
+        _id: "$items.productId",
+        totalSold: { $sum: "$items.quantity" },
+      },
+    },
+  ]);
+
+  await Product.updateMany({}, { $set: { totalSold: 0 } });
+  if (rows.length) {
+    await Product.bulkWrite(
+      rows.map((row) => ({
+        updateOne: {
+          filter: { _id: row._id },
+          update: { $set: { totalSold: row.totalSold } },
+        },
+      }))
+    );
+  }
+  totalSoldSynced = true;
+}
+
+async function ensureTotalSoldSynced() {
+  if (totalSoldSynced) return;
+  const hasOrders = await Order.exists({ status: { $nin: ["cancelled"] } });
+  if (!hasOrders) {
+    totalSoldSynced = true;
+    return;
+  }
+  const hasSold = await Product.exists({ totalSold: { $gt: 0 } });
+  if (hasSold) {
+    totalSoldSynced = true;
+    return;
+  }
+  await syncTotalSoldFromOrders();
 }
 
 function buildAdminFilter(query) {
@@ -55,15 +101,23 @@ function buildAdminFilter(query) {
 }
 
 async function listProducts(query, { admin = false } = {}) {
+  if (!admin && query.bestSeller === "true") {
+    await ensureTotalSoldSynced();
+  }
+
   const { page, limit, skip } = getPagination(query);
   const sort = getSort(query, [
-    "position", "createdAt", "price", "name", "rating", "reviewsCount", "stock",
+    "position", "createdAt", "price", "name", "rating", "reviewsCount", "stock", "totalSold",
   ]);
+  const effectiveSort =
+    query.bestSeller === "true" && !query.sort
+      ? { totalSold: -1, reviewsCount: -1, createdAt: -1 }
+      : sort;
 
   const filter = admin ? buildAdminFilter(query) : buildPublicFilter(query);
 
   const [products, total] = await Promise.all([
-    Product.find(filter).sort(sort).skip(skip).limit(limit).lean(),
+    Product.find(filter).sort(effectiveSort).skip(skip).limit(limit).lean(),
     Product.countDocuments(filter),
   ]);
 

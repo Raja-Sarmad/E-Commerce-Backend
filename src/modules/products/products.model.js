@@ -38,6 +38,7 @@ const productSchema = new mongoose.Schema(
 
     rating: { type: Number, default: 0, min: 0, max: 5 },
     reviewsCount: { type: Number, default: 0 },
+    totalSold: { type: Number, default: 0, min: 0, index: true },
 
     stock: { type: Number, default: 0, min: 0 },
     lowStockThreshold: { type: Number, default: 10 },

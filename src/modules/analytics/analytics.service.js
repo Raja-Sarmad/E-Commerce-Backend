@@ -108,11 +108,46 @@ async function getDailyOrders(days = 7) {
 }
 
 async function getTopProducts(limit = 5) {
-  return Product.find({ isActive: true })
-    .sort({ reviewsCount: -1 })
-    .limit(limit)
-    .select("name price rating reviewsCount images stock")
+  const soldRows = await Order.aggregate([
+    { $match: { status: { $nin: ["cancelled"] } } },
+    { $unwind: "$items" },
+    {
+      $group: {
+        _id: "$items.productId",
+        totalSold: { $sum: "$items.quantity" },
+        revenue: { $sum: { $multiply: ["$items.price", "$items.quantity"] } },
+      },
+    },
+    { $sort: { totalSold: -1 } },
+    { $limit: limit },
+  ]);
+
+  if (soldRows.length === 0) {
+    return Product.find({ isActive: true })
+      .sort({ totalSold: -1, reviewsCount: -1 })
+      .limit(limit)
+      .select("name price rating reviewsCount images stock totalSold")
+      .lean();
+  }
+
+  const soldMap = new Map(soldRows.map((row) => [String(row._id), row]));
+  const products = await Product.find({
+    _id: { $in: soldRows.map((row) => row._id) },
+    isActive: true,
+  })
+    .select("name price rating reviewsCount images stock totalSold")
     .lean();
+
+  return products
+    .map((product) => {
+      const stats = soldMap.get(String(product._id));
+      return {
+        ...product,
+        totalSold: stats?.totalSold ?? product.totalSold ?? 0,
+        revenue: stats?.revenue ?? 0,
+      };
+    })
+    .sort((a, b) => (b.totalSold ?? 0) - (a.totalSold ?? 0));
 }
 
 async function getLowStockProducts(limit = 5) {

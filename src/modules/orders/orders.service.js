@@ -80,11 +80,11 @@ async function createOrder(userId, data) {
     estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
-  // decrement stock
+  // decrement stock + track sales
   for (const item of orderItems) {
     const product = productMap.get(String(item.productId));
     await Product.findByIdAndUpdate(product._id, {
-      $inc: { stock: -item.quantity },
+      $inc: { stock: -item.quantity, totalSold: item.quantity },
     });
   }
 
@@ -188,9 +188,10 @@ async function updateOrderStatus(orderId, status, note = "") {
   await order.save();
 
   if (status === "cancelled") {
-    // restore stock
     for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity } });
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: item.quantity, totalSold: -item.quantity },
+      });
     }
   }
 
@@ -235,7 +236,9 @@ async function cancelOrder(userId, orderId, reason = "") {
   await order.save();
 
   for (const item of order.items) {
-    await Product.findByIdAndUpdate(item.productId, { $inc: { stock: item.quantity } });
+    await Product.findByIdAndUpdate(item.productId, {
+      $inc: { stock: item.quantity, totalSold: -item.quantity },
+    });
   }
 
   return order;
