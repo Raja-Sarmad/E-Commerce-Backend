@@ -12,6 +12,7 @@
     "seed:user": "node src/seed/seed-user.js",
     "seed:data": "node src/seed/seed-data.js",
     "seed:destroy": "node src/seed/seed.js --destroy",
+    "clear:products": "node scripts/clear-products.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },
