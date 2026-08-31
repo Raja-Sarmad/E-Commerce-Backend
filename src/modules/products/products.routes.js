@@ -15,6 +15,7 @@ import {
 
 /* ── Public ─────────────────────────────────────────────────── */
 router.get("/", cacheHeaders(60), productController.listProducts);
+router.get("/stock", productController.getProductStock);
 router.get("/slug/:slug", cacheHeaders(60), productController.getProductBySlug);
 router.get("/:id", mongoIdRule, cacheHeaders(60), productController.getProduct);
 

@@ -60,58 +60,72 @@ async function createOrder(userId, data) {
   const tax = Math.round((subtotal - discount) * (settings.taxRate / 100) * 100) / 100;
   const total = Math.round((subtotal - discount + shipping + tax) * 100) / 100;
 
-  const order = await Order.create({
-    user: userId,
-    items: orderItems,
-    subtotal,
-    discount,
-    shipping,
-    tax,
-    total,
-    couponCode: coupon ? coupon.code : null,
-    coupon: coupon ? coupon._id : null,
-    shippingAddress,
-    billingAddress: billingAddress || shippingAddress,
-    paymentMethod,
-    payment: {
-      status: paymentMethod === "cod" ? "pending" : "succeeded",
-      method: paymentMethod,
-    },
-    status: "pending",
-    estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-  });
+  const decremented = [];
+  try {
+    for (const item of orderItems) {
+      const updated = await Product.findOneAndUpdate(
+        { _id: item.productId, stock: { $gte: item.quantity }, isActive: true },
+        { $inc: { stock: -item.quantity, totalSold: item.quantity } },
+        { new: true }
+      );
+      if (!updated) {
+        throw new AppError(
+          `Insufficient stock for "${item.name}". Please refresh your cart and try again.`,
+          400
+        );
+      }
+      decremented.push({ productId: item.productId, quantity: item.quantity });
+    }
 
-  // decrement stock + track sales
-  for (const item of orderItems) {
-    const product = productMap.get(String(item.productId));
-    await Product.findByIdAndUpdate(product._id, {
-      $inc: { stock: -item.quantity, totalSold: item.quantity },
+    const order = await Order.create({
+      user: userId,
+      items: orderItems,
+      subtotal,
+      discount,
+      shipping,
+      tax,
+      total,
+      couponCode: coupon ? coupon.code : null,
+      coupon: coupon ? coupon._id : null,
+      shippingAddress,
+      billingAddress: billingAddress || shippingAddress,
+      paymentMethod,
+      payment: {
+        status: paymentMethod === "cod" ? "pending" : "succeeded",
+        method: paymentMethod,
+      },
+      status: "pending",
+      estimatedDelivery: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     });
+    clearCatalogCache();
+
+    if (coupon) await couponService.recordUsage(coupon._id, userId);
+
+    await User.findByIdAndUpdate(userId, {
+      $inc: { ordersCount: 1, totalSpent: total },
+    });
+
+    await createNotification({
+      type: "order",
+      title: "New order received",
+      message: `Order ${order.number} was placed.`,
+      link: "/admin/orders",
+    });
+    const user = await User.findById(userId).lean();
+    await sendTemplateEmail(
+      user.email,
+      orderConfirmationEmail(user.name, order.number, `$${total.toFixed(2)}`)
+    );
+
+    return order;
+  } catch (err) {
+    for (const row of decremented) {
+      await Product.findByIdAndUpdate(row.productId, {
+        $inc: { stock: row.quantity, totalSold: -row.quantity },
+      });
+    }
+    throw err;
   }
-  clearCatalogCache();
-
-  // record coupon usage
-  if (coupon) await couponService.recordUsage(coupon._id, userId);
-
-  // update user stats
-  await User.findByIdAndUpdate(userId, {
-    $inc: { ordersCount: 1, totalSpent: total },
-  });
-
-  // notifications + email (fire and forget)
-  await createNotification({
-    type: "order",
-    title: "New order received",
-    message: `Order ${order.number} was placed.`,
-    link: "/admin/orders",
-  });
-  const user = await User.findById(userId).lean();
-  await sendTemplateEmail(
-    user.email,
-    orderConfirmationEmail(user.name, order.number, `$${total.toFixed(2)}`)
-  );
-
-  return order;
 }
 
 async function listMyOrders(userId, query) {

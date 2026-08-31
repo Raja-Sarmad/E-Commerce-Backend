@@ -186,6 +186,22 @@ async function getProductWithRelatedBySlug(slug) {
   return result;
 }
 
+/** Live stock lookup — never cached (used by cart/checkout and live UI). */
+async function getStockByIds(ids = []) {
+  const unique = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean))];
+  if (!unique.length) return [];
+
+  const rows = await Product.find({ _id: { $in: unique }, isActive: true })
+    .select("_id stock")
+    .lean();
+
+  const stockMap = new Map(rows.map((p) => [String(p._id), Math.max(0, p.stock ?? 0)]));
+  return unique.map((id) => ({
+    id: String(id),
+    stock: stockMap.get(String(id)) ?? 0,
+  }));
+}
+
 async function createProduct(data, files = []) {
   let urlImages = [];
 
@@ -395,6 +411,7 @@ export {
   getProductBySlug,
   getProductWithRelatedBySlug,
   getRelatedProducts,
+  getStockByIds,
   createProduct,
   updateProduct,
   deleteProduct,

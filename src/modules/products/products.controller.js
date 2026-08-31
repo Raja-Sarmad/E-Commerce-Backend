@@ -24,6 +24,14 @@ const getProductBySlug = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, "Product fetched successfully.", { ...product.toJSON(), related });
 });
 
+const getProductStock = asyncHandler(async (req, res) => {
+  const raw = req.query.ids;
+  const ids = typeof raw === "string" ? raw.split(",").map((id) => id.trim()).filter(Boolean) : [];
+  res.set("Cache-Control", "no-store");
+  const stock = await productService.getStockByIds(ids);
+  return sendResponse(res, 200, "Stock fetched successfully.", stock);
+});
+
 const getAdminProduct = asyncHandler(async (req, res) => {
   const product = await productService.getProductById(req.params.id, { admin: true });
   return sendResponse(res, 200, "Product fetched successfully.", product);
@@ -73,6 +81,7 @@ export {
   listAdminProducts,
   getProduct,
   getProductBySlug,
+  getProductStock,
   getAdminProduct,
   createProduct,
   updateProduct,
