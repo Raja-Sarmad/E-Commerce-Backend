@@ -1,6 +1,7 @@
 import Message from "./messages.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import { createNotification } from "../notifications/notifications.service.js";
 
 async function createMessage(data) {
@@ -22,6 +23,7 @@ async function listMessages(query) {
   if (query.status) filter.status = query.status;
   if (query.starred === "true") filter.starred = true;
   if (query.search) filter.$or = [{ name: new RegExp(query.search.trim(), "i") }, { email: new RegExp(query.search.trim(), "i") }, { subject: new RegExp(query.search.trim(), "i") }];
+  applyDateRangeFilter(filter, query);
 
   const [messages, total] = await Promise.all([
     Message.find(filter).sort(sort).skip(skip).limit(limit).lean(),

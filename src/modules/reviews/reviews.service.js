@@ -2,6 +2,7 @@ import Review from "./reviews.model.js";
 import Product from "../products/products.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 
 /**
  * Recompute a product's aggregate rating + review count.
@@ -45,6 +46,7 @@ async function listAllReviews(query) {
   if (query.product) filter.product = query.product;
   if (query.rating) filter.rating = Number(query.rating);
   if (query.search) filter.$or = [{ name: new RegExp(query.search, "i") }, { body: new RegExp(query.search, "i") }];
+  applyDateRangeFilter(filter, query);
 
   const [reviews, total] = await Promise.all([
     Review.find(filter).sort(sort).skip(skip).limit(limit)

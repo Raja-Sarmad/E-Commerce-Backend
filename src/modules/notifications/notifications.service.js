@@ -1,6 +1,7 @@
 import Notification from "./notifications.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 
 /**
  * Create a notification. Fire-and-forget — never throws into the caller.
@@ -50,6 +51,7 @@ async function listNotifications(query, { admin = false, userId } = {}) {
   if (query.type) filter.type = query.type;
   if (query.read === "true") filter.read = true;
   if (query.read === "false") filter.read = false;
+  applyDateRangeFilter(filter, query);
 
   const [notifications, total, unreadCount] = await Promise.all([
     Notification.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),

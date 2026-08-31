@@ -1,6 +1,7 @@
 import User from "./users.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 
 /**
  * All user service functions return plain data; controllers handle HTTP.
@@ -58,6 +59,7 @@ async function listUsers(query, filters = {}) {
   if (query.tier) filter.tier = query.tier;
   if (query.status === "blocked") filter.isBlocked = true;
   if (query.status === "active") filter.isBlocked = false;
+  applyDateRangeFilter(filter, query);
 
   const [users, total] = await Promise.all([
     User.find(filter).sort(sort).skip(skip).limit(limit).lean(),

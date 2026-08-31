@@ -3,6 +3,7 @@ import Product from "../products/products.model.js";
 import User from "../users/users.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import * as couponService from "../coupons/coupons.service.js";
 import * as settingsService from "../settings/settings.service.js";
 import { createNotification } from "../notifications/notifications.service.js";
@@ -151,6 +152,7 @@ async function listAllOrders(query) {
   }
   if (query.paymentStatus) filter["payment.status"] = query.paymentStatus;
   if (query.user) filter.user = query.user;
+  applyDateRangeFilter(filter, query);
 
   const [orders, total] = await Promise.all([
     Order.find(filter)

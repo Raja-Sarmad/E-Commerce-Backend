@@ -1,6 +1,7 @@
 import Coupon from "./coupons.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 
 /**
  * Validate + compute the discount a coupon gives for a given subtotal.
@@ -65,6 +66,7 @@ async function listCoupons(query) {
   if (query.active === "true") filter.active = true;
   if (query.active === "false") filter.active = false;
   if (query.type) filter.type = query.type;
+  applyDateRangeFilter(filter, query);
 
   const [coupons, total] = await Promise.all([
     Coupon.find(filter).sort(sort).skip(skip).limit(limit).lean(),

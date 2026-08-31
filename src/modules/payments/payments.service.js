@@ -1,6 +1,7 @@
 import { PaymentMethod, Transaction } from "./payments.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import { createNotification } from "../notifications/notifications.service.js";
 
 const defaultMethods = [
@@ -47,6 +48,7 @@ async function listTransactions(query) {
       { customerName: new RegExp(query.search.trim(), "i") },
     ];
   }
+  applyDateRangeFilter(filter, query);
 
   const [transactions, total] = await Promise.all([
     Transaction.find(filter).sort(sort).skip(skip).limit(limit).lean(),

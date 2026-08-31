@@ -2,6 +2,7 @@ import BlogPost from "./blog.model.js";
 import AppError from "../../utils/AppError.js";
 import { createSlug } from "../../utils/slugify.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import { deleteFromCloudinary } from "../../utils/cloudinary.js";
 
 async function listPublicPosts(query) {
@@ -43,6 +44,7 @@ async function listAllPosts(query) {
   if (query.status) filter.status = query.status;
   if (query.category) filter.category = query.category;
   if (query.search) filter.title = new RegExp(query.search.trim(), "i");
+  applyDateRangeFilter(filter, query);
 
   const [posts, total] = await Promise.all([
     BlogPost.find(filter).sort(sort).skip(skip).limit(limit).lean(),

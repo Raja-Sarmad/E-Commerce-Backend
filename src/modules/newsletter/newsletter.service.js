@@ -1,6 +1,7 @@
 import Subscriber from "./newsletter.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 
 async function subscribe({ email, name, source }) {
   const normalized = email.toLowerCase().trim();
@@ -37,6 +38,7 @@ async function listSubscribers(query) {
   const filter = {};
   if (query.status) filter.status = query.status;
   if (query.search) filter.$or = [{ email: new RegExp(query.search.trim(), "i") }, { name: new RegExp(query.search.trim(), "i") }];
+  applyDateRangeFilter(filter, query);
 
   const [subscribers, total] = await Promise.all([
     Subscriber.find(filter).sort(sort).skip(skip).limit(limit).lean(),

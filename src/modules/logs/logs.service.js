@@ -1,5 +1,6 @@
 import LogEntry from "./logs.model.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 
 /**
  * Write a log entry. Fire-and-forget (never throws).
@@ -20,6 +21,7 @@ async function listLogs(query) {
   if (query.type) filter.type = query.type;
   if (query.level) filter.level = query.level;
   if (query.search) filter.$or = [{ user: new RegExp(query.search.trim(), "i") }, { action: new RegExp(query.search.trim(), "i") }];
+  applyDateRangeFilter(filter, query);
 
   const [logs, total] = await Promise.all([
     LogEntry.find(filter).sort(sort).skip(skip).limit(limit).lean(),

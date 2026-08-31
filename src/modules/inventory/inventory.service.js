@@ -2,6 +2,7 @@ import InventoryEntry from "./inventory.model.js";
 import Product from "../products/products.model.js";
 import AppError from "../../utils/AppError.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
+import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import { checkLowStock } from "../notifications/notifications.service.js";
 
 async function listHistory(query) {
@@ -11,6 +12,9 @@ async function listHistory(query) {
   const filter = {};
   if (query.product) filter.product = query.product;
   if (query.search) filter.$or = [{ productName: new RegExp(query.search.trim(), "i") }, { sku: new RegExp(query.search.trim(), "i") }];
+  if (query.direction === "in") filter.adjustment = { $gt: 0 };
+  if (query.direction === "out") filter.adjustment = { $lt: 0 };
+  applyDateRangeFilter(filter, query);
 
   const [entries, total] = await Promise.all([
     InventoryEntry.find(filter).sort(sort).skip(skip).limit(limit).lean(),
