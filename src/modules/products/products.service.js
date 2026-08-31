@@ -2,8 +2,11 @@ import Product from "./products.model.js";
 import AppError from "../../utils/AppError.js";
 import { createSlug } from "../../utils/slugify.js";
 import { getPagination, getPaginationMeta, getSort } from "../../utils/pagination.js";
-import { uploadMany, uploadUrls, deleteFromCloudinary } from "../../utils/cloudinary.js";
+import { uploadMany, resolveRemoteImages, deleteFromCloudinary } from "../../utils/cloudinary.js";
+import config from "../../config/index.js";
 import { checkLowStock } from "../notifications/notifications.service.js";
+
+const productImageFolder = `${config.cloudinary.folder}/products`;
 
 /**
  * Build a Mongo filter object from public query params.
@@ -123,13 +126,14 @@ async function createProduct(data, files = []) {
     }
   }
 
-  const urlResults = urlImages.length > 0 ? await uploadUrls(urlImages, "novamart/products") : [];
+  const urlResults =
+    urlImages.length > 0 ? await resolveRemoteImages(urlImages, productImageFolder) : [];
 
   let images = urlResults.map((u) => u.url);
   let publicIds = urlResults.filter((u) => u.publicId).map((u) => u.publicId);
 
   if (files && files.length) {
-    const uploaded = await uploadMany(files, "novamart/products");
+    const uploaded = await uploadMany(files, productImageFolder);
     images = [...images, ...uploaded.map((u) => u.url)];
     publicIds = [...publicIds, ...uploaded.map((u) => u.publicId)];
   }
@@ -202,13 +206,14 @@ async function updateProduct(productId, data, files = []) {
     }
   }
 
-  const urlResults = newUrlImages.length > 0 ? await uploadUrls(newUrlImages, "novamart/products") : [];
+  const urlResults =
+    newUrlImages.length > 0 ? await resolveRemoteImages(newUrlImages, productImageFolder) : [];
 
   let newImages = urlResults.map((u) => u.url);
   const newPublicIds = urlResults.filter((u) => u.publicId).map((u) => u.publicId);
 
   if (files && files.length) {
-    const uploaded = await uploadMany(files, "novamart/products");
+    const uploaded = await uploadMany(files, productImageFolder);
     newImages = [...newImages, ...uploaded.map((u) => u.url)];
     newPublicIds.push(...uploaded.map((u) => u.publicId));
   }

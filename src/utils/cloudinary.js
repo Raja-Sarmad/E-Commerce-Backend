@@ -74,13 +74,20 @@ async function uploadToCloudinary(opts) {
   const resourceType = isVideo ? "video" : "image";
 
   const form = new FormData();
-  form.append("file", `data:${mimetype};base64,${buffer.toString("base64")}`);
+  const blob = new Blob([buffer], { type: mimetype });
+  form.append("file", blob, `upload${EXTENSIONS[mimetype] || ".bin"}`);
   form.append("upload_preset", uploadPreset);
+  if (opts.folder) form.append("folder", opts.folder);
+
+  const isVercel = Boolean(process.env.VERCEL);
+  const timeoutMs = isVercel
+    ? Math.min(config.cloudinary.uploadTimeoutMs, 25000)
+    : config.cloudinary.uploadTimeoutMs;
 
   const controller = new AbortController();
   const timeout = setTimeout(() => {
     controller.abort();
-  }, config.cloudinary.uploadTimeoutMs);
+  }, timeoutMs);
 
   try {
     const response = await fetch(
@@ -103,7 +110,12 @@ async function uploadToCloudinary(opts) {
     return { url: result.secure_url, publicId: result.public_id };
   } catch (err) {
     if (err.name === "AbortError") {
-      throw new AppError("Cloudinary upload timed out. Check your internet connection.", 500);
+      throw new AppError(
+        isVercel
+          ? "Image upload timed out on the server. Use a smaller image or try again."
+          : "Cloudinary upload timed out. Check your internet connection.",
+        500
+      );
     }
     if (err instanceof AppError) throw err;
     throw new AppError(`Image upload failed: ${err.message}`, 500);
@@ -224,9 +236,6 @@ async function uploadUrlToCloudinary(imageUrl, folder = config.cloudinary.folder
   return { url: result.secure_url, publicId: result.public_id };
 }
 
-/**
- * Upload an array of URLs to Cloudinary (downloads each, re-uploads).
- */
 async function uploadUrls(urls, folder = config.cloudinary.folder) {
   if (!urls || urls.length === 0) return [];
 
@@ -244,4 +253,45 @@ async function uploadUrls(urls, folder = config.cloudinary.folder) {
   return results;
 }
 
-export { uploadToCloudinary, uploadMany, uploadUrls, uploadUrlToCloudinary, deleteFromCloudinary };
+function isCloudinaryUrl(url) {
+  return typeof url === "string" && url.includes("res.cloudinary.com");
+}
+
+function publicIdFromCloudinaryUrl(url) {
+  if (!isCloudinaryUrl(url)) return null;
+  const marker = "/upload/";
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null;
+  let path = url.slice(idx + marker.length).replace(/^v\d+\//, "");
+  const query = path.indexOf("?");
+  if (query !== -1) path = path.slice(0, query);
+  return path.replace(/\.[^/.]+$/, "");
+}
+
+async function resolveRemoteImages(urls = [], folder = config.cloudinary.folder) {
+  const results = [];
+  const external = [];
+
+  for (const url of urls.filter(Boolean)) {
+    if (isCloudinaryUrl(url)) {
+      results.push({ url, publicId: publicIdFromCloudinaryUrl(url) });
+    } else {
+      external.push(url);
+    }
+  }
+
+  if (external.length > 0) {
+    results.push(...(await uploadUrls(external, folder)));
+  }
+
+  return results;
+}
+
+export {
+  uploadToCloudinary,
+  uploadMany,
+  uploadUrls,
+  uploadUrlToCloudinary,
+  resolveRemoteImages,
+  deleteFromCloudinary,
+};
