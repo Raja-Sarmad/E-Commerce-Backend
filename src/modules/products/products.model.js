@@ -62,12 +62,11 @@ const productSchema = new mongoose.Schema(
 
     vendor: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
   },
-  { timestamps: true }
+  { timestamps: true, suppressReservedKeysWarning: true }
 );
 
 /* ── Indexes (query optimization) ───────────────────────────── */
 productSchema.index({ name: 1 });
-productSchema.index({ slug: 1 }, { unique: true });
 productSchema.index({ category: 1, price: 1, createdAt: -1 });
 productSchema.index({ brand: 1, price: 1 });
 productSchema.index({ tags: 1 });
