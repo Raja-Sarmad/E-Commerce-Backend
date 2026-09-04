@@ -12,6 +12,11 @@ const listAllCategories = asyncHandler(async (_req, res) => {
   return sendResponse(res, 200, "Categories fetched successfully.", categories);
 });
 
+const listAdminCategories = asyncHandler(async (_req, res) => {
+  const categories = await categoryService.listAllCategories({ admin: true });
+  return sendResponse(res, 200, "Categories fetched successfully.", categories);
+});
+
 const getCategoryBySlug = asyncHandler(async (req, res) => {
   const category = await categoryService.getCategoryBySlug(req.params.slug);
   return sendResponse(res, 200, "Category fetched successfully.", category);
@@ -40,6 +45,7 @@ const deleteCategory = asyncHandler(async (req, res) => {
 export {
   listCategories,
   listAllCategories,
+  listAdminCategories,
   getCategoryById,
   getCategoryBySlug,
   createCategory,

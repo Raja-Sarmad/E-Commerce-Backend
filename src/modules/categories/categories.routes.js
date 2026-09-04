@@ -26,6 +26,7 @@ router.get("/:id", mongoIdRule, cacheHeaders(120), categoryController.getCategor
 
 /* ── Admin ──────────────────────────────────────────────────── */
 router.use("/", authenticate, authorize(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER));
+router.get("/admin/list", categoryController.listAdminCategories);
 router.post("/", uploadSingle("image"), createRules, categoryController.createCategory);
 router.patch("/:id", mongoIdRule, uploadSingle("image"), categoryController.updateCategory);
 router.delete("/:id", mongoIdRule, categoryController.deleteCategory);
