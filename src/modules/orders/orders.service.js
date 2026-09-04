@@ -14,7 +14,7 @@ const ORDERABLE_STATUS = new Set(["pending", "processing", "shipped", "delivered
 
 async function createOrder(userId, data) {
   const settings = await settingsService.getSettings();
-  const { items, couponCode, shippingAddress, billingAddress, paymentMethod } = data;
+  const { items, couponCode, shippingAddress, billingAddress, paymentMethod, deliveryOption } = data;
 
   if (!items || items.length === 0) {
     throw new AppError("Order must contain at least one item.", 400);
@@ -55,8 +55,12 @@ async function createOrder(userId, data) {
     discount = result.discount;
   }
 
-  const shipping =
+  let baseShipping =
     subtotal - discount >= settings.freeShippingThreshold ? 0 : settings.defaultShippingRate;
+  if (deliveryOption === "express") baseShipping += 12;
+  else if (deliveryOption === "nextday") baseShipping += 25;
+
+  const shipping = baseShipping;
   const tax = Math.round((subtotal - discount) * (settings.taxRate / 100) * 100) / 100;
   const total = Math.round((subtotal - discount + shipping + tax) * 100) / 100;
 
