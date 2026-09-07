@@ -1,6 +1,31 @@
 import { body, param } from "express-validator";
 import validate from "../../middlewares/validate.js";
 
+/**
+ * Validate the variants field — accepts either an array of
+ * { size, stock } objects or a JSON-encoded string (FormData variant).
+ */
+function isValidVariants(v) {
+  let parsed = v;
+  if (typeof v === "string") {
+    try {
+      parsed = JSON.parse(v);
+    } catch {
+      return false;
+    }
+  }
+  if (!Array.isArray(parsed)) return false;
+  return parsed.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    if (typeof item.size !== "string" || !item.size.trim()) return false;
+    if (item.stock !== undefined) {
+      const n = Number(item.stock);
+      if (isNaN(n) || n < 0) return false;
+    }
+    return true;
+  });
+}
+
 const mongoId = param("id").isMongoId().withMessage("Invalid product id.");
 const mongoIdRule = [mongoId, validate];
 
@@ -47,6 +72,10 @@ const createProductRules = [
     if (Array.isArray(v)) return true;
     if (typeof v === "string") return true;
     return false;
+  }),
+  body("variants").optional().custom((v) => {
+    if (isValidVariants(v)) return true;
+    throw new Error("Variants must be an array of { size, stock }.");
   }),
   body("isFeatured").optional().custom((v) => {
     if (v === "true" || v === "false" || typeof v === "boolean") return true;
@@ -104,6 +133,10 @@ const updateProductRules = [
     if (Array.isArray(v)) return true;
     if (typeof v === "string") return true;
     return false;
+  }),
+  body("variants").optional().custom((v) => {
+    if (isValidVariants(v)) return true;
+    throw new Error("Variants must be an array of { size, stock }.");
   }),
   body("features").optional().custom((v) => {
     if (Array.isArray(v)) return true;

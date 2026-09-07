@@ -31,9 +31,23 @@ async function createOrder(userId, data) {
   const orderItems = items.map((item) => {
     const product = productMap.get(String(item.productId));
     if (!product) throw new AppError(`Product not found for item.`, 400);
-    if (product.stock < item.quantity) {
+
+    // Check variant-level stock if size is specified
+    if (item.size && product.variants && product.variants.length > 0) {
+      const variant = product.variants.find((v) => v.size === item.size);
+      if (!variant) {
+        throw new AppError(`Size "${item.size}" not available for "${product.name}".`, 400);
+      }
+      if (variant.stock < item.quantity) {
+        throw new AppError(
+          `Insufficient stock for "${product.name}" (size: ${item.size}). Only ${variant.stock} left.`,
+          400
+        );
+      }
+    } else if (product.stock < item.quantity) {
       throw new AppError(`Insufficient stock for "${product.name}". Only ${product.stock} left.`, 400);
     }
+
     return {
       productId: product._id,
       name: product.name,
@@ -67,18 +81,49 @@ async function createOrder(userId, data) {
   const decremented = [];
   try {
     for (const item of orderItems) {
-      const updated = await Product.findOneAndUpdate(
-        { _id: item.productId, stock: { $gte: item.quantity }, isActive: true },
-        { $inc: { stock: -item.quantity, totalSold: item.quantity } },
-        { new: true }
-      );
-      if (!updated) {
-        throw new AppError(
-          `Insufficient stock for "${item.name}". Please refresh your cart and try again.`,
-          400
+      if (item.size) {
+        // Variant-level decrement using atomic update
+        const updated = await Product.findOneAndUpdate(
+          {
+            _id: item.productId,
+            isActive: true,
+            variants: {
+              $elemMatch: { size: item.size, stock: { $gte: item.quantity } },
+            },
+          },
+          {
+            $inc: {
+              "variants.$.stock": -item.quantity,
+              totalSold: item.quantity,
+            },
+          },
+          { new: true }
         );
+        if (!updated) {
+          throw new AppError(
+            `Insufficient stock for "${item.name}" (size: ${item.size}). Please refresh your cart and try again.`,
+            400
+          );
+        }
+        // Sync total stock from variants
+        updated.stock = updated.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+        await updated.save();
+        decremented.push({ productId: item.productId, quantity: item.quantity, size: item.size });
+      } else {
+        // Product-level decrement
+        const updated = await Product.findOneAndUpdate(
+          { _id: item.productId, stock: { $gte: item.quantity }, isActive: true },
+          { $inc: { stock: -item.quantity, totalSold: item.quantity } },
+          { new: true }
+        );
+        if (!updated) {
+          throw new AppError(
+            `Insufficient stock for "${item.name}". Please refresh your cart and try again.`,
+            400
+          );
+        }
+        decremented.push({ productId: item.productId, quantity: item.quantity });
       }
-      decremented.push({ productId: item.productId, quantity: item.quantity });
     }
 
     const order = await Order.create({
@@ -124,9 +169,28 @@ async function createOrder(userId, data) {
     return order;
   } catch (err) {
     for (const row of decremented) {
-      await Product.findByIdAndUpdate(row.productId, {
-        $inc: { stock: row.quantity, totalSold: -row.quantity },
-      });
+      if (row.size) {
+        // Rollback variant-level stock
+        await Product.findOneAndUpdate(
+          { _id: row.productId, "variants.size": row.size },
+          {
+            $inc: {
+              "variants.$.stock": row.quantity,
+              totalSold: -row.quantity,
+            },
+          }
+        );
+        // Sync total stock
+        const product = await Product.findById(row.productId);
+        if (product) {
+          product.stock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+          await product.save();
+        }
+      } else {
+        await Product.findByIdAndUpdate(row.productId, {
+          $inc: { stock: row.quantity, totalSold: -row.quantity },
+        });
+      }
     }
     throw err;
   }
@@ -213,9 +277,28 @@ async function updateOrderStatus(orderId, status, note = "") {
 
   if (status === "cancelled") {
     for (const item of order.items) {
-      await Product.findByIdAndUpdate(item.productId, {
-        $inc: { stock: item.quantity, totalSold: -item.quantity },
-      });
+      if (item.size) {
+        // Restore variant-level stock
+        await Product.findOneAndUpdate(
+          { _id: item.productId, "variants.size": item.size },
+          {
+            $inc: {
+              "variants.$.stock": item.quantity,
+              totalSold: -item.quantity,
+            },
+          }
+        );
+        // Sync total stock
+        const product = await Product.findById(item.productId);
+        if (product) {
+          product.stock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+          await product.save();
+        }
+      } else {
+        await Product.findByIdAndUpdate(item.productId, {
+          $inc: { stock: item.quantity, totalSold: -item.quantity },
+        });
+      }
     }
     clearCatalogCache();
   }
@@ -261,9 +344,27 @@ async function cancelOrder(userId, orderId, reason = "") {
   await order.save();
 
   for (const item of order.items) {
-    await Product.findByIdAndUpdate(item.productId, {
-      $inc: { stock: item.quantity, totalSold: -item.quantity },
-    });
+    if (item.size) {
+      // Restore variant-level stock
+      await Product.findOneAndUpdate(
+        { _id: item.productId, "variants.size": item.size },
+        {
+          $inc: {
+            "variants.$.stock": item.quantity,
+            totalSold: -item.quantity,
+          },
+        }
+      );
+      const product = await Product.findById(item.productId);
+      if (product) {
+        product.stock = product.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+        await product.save();
+      }
+    } else {
+      await Product.findByIdAndUpdate(item.productId, {
+        $inc: { stock: item.quantity, totalSold: -item.quantity },
+      });
+    }
   }
   clearCatalogCache();
 

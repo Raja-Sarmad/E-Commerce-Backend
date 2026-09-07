@@ -41,7 +41,9 @@ function buildPublicFilter(query) {
   }
   if (query.trending === "true") filter.isTrending = true;
   if (query.onSale === "true") filter.onSale = true;
-  if (query.inStock === "true") filter.stock = { $gt: 0 };
+  if (query.inStock === "true") {
+    filter.$or = [{ stock: { $gt: 0 } }, { "variants.stock": { $gt: 0 } }];
+  }
   if (query.colors) filter.colors = { $in: [query.colors] };
 
   return filter;
@@ -101,8 +103,19 @@ function buildAdminFilter(query) {
   }
   if (query.category) filter.category = query.category;
   if (query.brand) filter.brand = query.brand;
-  if (query.stockStatus === "low") filter.stock = { $lte: query.threshold ? Number(query.threshold) : 10 };
-  if (query.stockStatus === "out") filter.stock = { $lte: 0 };
+  if (query.stockStatus === "low") {
+    const t = query.threshold ? Number(query.threshold) : 10;
+    filter.$or = [
+      { stock: { $gt: 0, $lte: t } },
+      { variants: { $elemMatch: { stock: { $gt: 0, $lte: t } } } },
+    ];
+  }
+  if (query.stockStatus === "out") {
+    filter.$and = [
+      { stock: { $lte: 0 } },
+      { $or: [{ variants: { $size: 0 } }, { variants: { $not: { $elemMatch: { stock: { $gt: 0 } } } } }] },
+    ];
+  }
   return filter;
 }
 
@@ -192,13 +205,23 @@ async function getStockByIds(ids = []) {
   if (!unique.length) return [];
 
   const rows = await Product.find({ _id: { $in: unique }, isActive: true })
-    .select("_id stock")
+    .select("_id stock variants")
     .lean();
 
   const stockMap = new Map(rows.map((p) => [String(p._id), Math.max(0, p.stock ?? 0)]));
+  const variantStockMap = new Map(
+    rows.map((p) => [
+      String(p._id),
+      p.variants && p.variants.length > 0
+        ? Object.fromEntries(p.variants.map((v) => [v.size, Math.max(0, v.stock ?? 0)]))
+        : null,
+    ])
+  );
+
   return unique.map((id) => ({
     id: String(id),
     stock: stockMap.get(String(id)) ?? 0,
+    variants: variantStockMap.get(String(id)) ?? undefined,
   }));
 }
 
@@ -276,6 +299,22 @@ async function createProduct(data, files = []) {
       }
     }
   });
+
+  // Parse variants from JSON string if needed
+  if (cleanData.variants && typeof cleanData.variants === "string") {
+    try {
+      const parsed = JSON.parse(cleanData.variants);
+      if (Array.isArray(parsed)) cleanData.variants = parsed;
+    } catch {
+      cleanData.variants = [];
+    }
+  }
+  if (!Array.isArray(cleanData.variants)) cleanData.variants = [];
+
+  // Auto-sync stock from variants if variants are provided
+  if (cleanData.variants.length > 0) {
+    cleanData.stock = cleanData.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+  }
 
   const product = await Product.create({ ...cleanData, slug, images, publicIds });
 
@@ -361,11 +400,26 @@ async function updateProduct(productId, data, files = []) {
     }
   });
 
+  // Parse variants from JSON string if needed
+  if (cleanData.variants && typeof cleanData.variants === "string") {
+    try {
+      const parsed = JSON.parse(cleanData.variants);
+      if (Array.isArray(parsed)) cleanData.variants = parsed;
+    } catch {
+      cleanData.variants = [];
+    }
+  }
+
+  // Auto-sync stock from variants if variants are provided
+  if (Array.isArray(cleanData.variants) && cleanData.variants.length > 0) {
+    cleanData.stock = cleanData.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+  }
+
   const allowed = [
     "name", "slug", "brand", "brandRef", "category", "categoryRef", "categorySlug",
     "description", "features", "specifications", "price", "compareAtPrice",
     "stock", "lowStockThreshold", "sku", "tags", "isFeatured", "isBestSeller",
-    "isNew", "isTrending", "colors", "sizes", "position", "isActive", "vendor",
+    "isNew", "isTrending", "colors", "sizes", "variants", "position", "isActive", "vendor",
   ];
   allowed.forEach((k) => {
     if (cleanData[k] !== undefined) product[k] = cleanData[k];

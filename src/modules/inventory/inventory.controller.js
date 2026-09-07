@@ -12,7 +12,8 @@ const adjustStock = asyncHandler(async (req, res) => {
     req.params.productId,
     req.body.adjustment,
     req.body.reason,
-    req.user?.name || "Admin"
+    req.user?.name || "Admin",
+    req.body.size || null
   );
   return sendResponse(res, 200, "Stock adjusted successfully.", product);
 });

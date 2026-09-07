@@ -55,6 +55,12 @@ const productSchema = new mongoose.Schema(
     discountPercent: { type: Number, default: 0, min: 0, max: 100 },
     colors: [{ type: String }],
     sizes: [{ type: String }],
+    variants: [
+      {
+        size: { type: String, required: true },
+        stock: { type: Number, default: 0, min: 0 },
+      },
+    ],
 
     position: { type: Number, default: 0, index: true },
 
@@ -93,12 +99,27 @@ productSchema.pre("save", function (next) {
     this.onSale = false;
     this.discountPercent = 0;
   }
+  // Auto-sync total stock from variants when variants exist
+  if (this.isModified("variants") && this.variants && this.variants.length > 0) {
+    this.stock = this.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+  }
   next();
 });
 
 productSchema.virtual("isLowStock").get(function () {
   return this.stock <= this.lowStockThreshold;
 });
+
+productSchema.virtual("totalVariantStock").get(function () {
+  if (!this.variants || this.variants.length === 0) return this.stock;
+  return this.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+});
+
+productSchema.methods.getVariantStock = function (size) {
+  if (!size || !this.variants || this.variants.length === 0) return this.stock;
+  const variant = this.variants.find((v) => v.size === size);
+  return variant ? variant.stock : 0;
+};
 
 productSchema.set("toJSON", { virtuals: true });
 

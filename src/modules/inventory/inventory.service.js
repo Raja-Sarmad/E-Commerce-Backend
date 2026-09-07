@@ -27,27 +27,51 @@ async function listHistory(query) {
   };
 }
 
-async function adjustStock(productId, adjustment, reason = "", actor = "System") {
+async function adjustStock(productId, adjustment, reason = "", actor = "System", size = null) {
   const product = await Product.findById(productId);
   if (!product) throw new AppError("Product not found.", 404);
-  if (product.stock + adjustment < 0) {
-    throw new AppError("Adjustment would make stock negative.", 400);
+
+  if (size && product.variants && product.variants.length > 0) {
+    // Variant-level adjustment
+    const variant = product.variants.find((v) => v.size === size);
+    if (!variant) throw new AppError(`Variant "${size}" not found.`, 404);
+    if (variant.stock + adjustment < 0) {
+      throw new AppError("Adjustment would make variant stock negative.", 400);
+    }
+    const previous = variant.stock;
+    variant.stock += adjustment;
+    await product.save(); // triggers pre-save hook to sync total stock
+
+    await InventoryEntry.create({
+      product: product._id,
+      productName: product.name,
+      sku: product.sku || "",
+      previous,
+      adjustment,
+      current: variant.stock,
+      reason: reason ? `${reason} (size: ${size})` : `Size: ${size}`,
+      user: actor,
+    });
+  } else {
+    // Product-level adjustment
+    if (product.stock + adjustment < 0) {
+      throw new AppError("Adjustment would make stock negative.", 400);
+    }
+    const previous = product.stock;
+    product.stock += adjustment;
+    await product.save();
+
+    await InventoryEntry.create({
+      product: product._id,
+      productName: product.name,
+      sku: product.sku || "",
+      previous,
+      adjustment,
+      current: product.stock,
+      reason,
+      user: actor,
+    });
   }
-
-  const previous = product.stock;
-  product.stock += adjustment;
-  await product.save();
-
-  await InventoryEntry.create({
-    product: product._id,
-    productName: product.name,
-    sku: product.sku || "",
-    previous,
-    adjustment,
-    current: product.stock,
-    reason,
-    user: actor,
-  });
 
   await checkLowStock(product);
   return product;
@@ -55,7 +79,12 @@ async function adjustStock(productId, adjustment, reason = "", actor = "System")
 
 async function listLowStock(query = {}) {
   const threshold = query.threshold ? Number(query.threshold) : 10;
-  const products = await Product.find({ stock: { $lte: threshold } })
+  const products = await Product.find({
+    $or: [
+      { stock: { $gt: 0, $lte: threshold } },
+      { variants: { $elemMatch: { stock: { $gt: 0, $lte: threshold } } } },
+    ],
+  })
     .sort({ stock: 1 })
     .limit(100)
     .lean();
