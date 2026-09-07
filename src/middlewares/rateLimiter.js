@@ -10,6 +10,15 @@ const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   validate: { trustProxy: false },
+  skip: (req) => {
+    // Never throttle the lightweight stock ping used by the storefront's
+    // 15s live-stock polling — a full bucket otherwise freezes the UI on
+    // stale stock values for the whole 15-minute window.
+    const isStockPing =
+      req.method === "GET" &&
+      String(req.originalUrl || req.url).startsWith(`${config.apiPrefix}/products/stock`);
+    return isStockPing;
+  },
   message: {
     success: false,
     statusCode: 429,

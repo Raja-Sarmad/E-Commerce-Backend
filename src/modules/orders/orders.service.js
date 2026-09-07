@@ -44,6 +44,11 @@ async function createOrder(userId, data) {
           400
         );
       }
+    } else if (product.variants && product.variants.length > 0 && !item.size) {
+      throw new AppError(
+        `Please select a size for "${product.name}" before placing the order.`,
+        400
+      );
     } else if (product.stock < item.quantity) {
       throw new AppError(`Insufficient stock for "${product.name}". Only ${product.stock} left.`, 400);
     }
@@ -109,6 +114,11 @@ async function createOrder(userId, data) {
         updated.stock = updated.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
         await updated.save();
         decremented.push({ productId: item.productId, quantity: item.quantity, size: item.size });
+      } else if (productMap.get(String(item.productId)).variants?.length > 0) {
+        throw new AppError(
+          `Please select a size for "${item.name}" before placing the order.`,
+          400
+        );
       } else {
         // Product-level decrement
         const updated = await Product.findOneAndUpdate(

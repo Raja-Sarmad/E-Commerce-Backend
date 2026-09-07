@@ -81,7 +81,7 @@ const config = {
 
   rateLimit: {
     windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000,
-    max: Number(process.env.RATE_LIMIT_MAX) || (isProd ? 2000 : 200),
+    max: Number(process.env.RATE_LIMIT_MAX) || (isProd ? 2000 : 1000),
     authMax: Number(process.env.AUTH_RATE_LIMIT_MAX) || (isProd ? 100 : 20),
   },
 
