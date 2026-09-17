@@ -417,7 +417,8 @@ async function updateProduct(productId, data, files = []) {
 
   const allowed = [
     "name", "slug", "brand", "brandRef", "category", "categoryRef", "categorySlug",
-    "description", "features", "specifications", "price", "compareAtPrice",
+    "description", "features", "specifications", "materials", "sizeGuide", "shippingInfo",
+    "price", "compareAtPrice",
     "stock", "lowStockThreshold", "sku", "tags", "isFeatured", "isBestSeller",
     "isNew", "isTrending", "colors", "sizes", "variants", "position", "isActive", "vendor",
   ];

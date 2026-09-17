@@ -24,6 +24,9 @@ const productSchema = new mongoose.Schema(
     description: { type: String, default: "" },
     features: [{ type: String }],
     specifications: { type: Map, of: String, default: {} },
+    materials: { type: String, default: "" },
+    sizeGuide: { type: String, default: "" },
+    shippingInfo: { type: String, default: "" },
 
     price: {
       type: Number,
