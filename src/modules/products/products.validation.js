@@ -46,6 +46,11 @@ const createProductRules = [
   body("category").optional().isString(),
   body("categorySlug").optional().isString(),
   body("brand").optional().isString(),
+  body("wearType").optional().custom((v) => {
+    if (v === undefined || v === null || v === "") return true;
+    if (["stitched", "unstitched", "modelwear"].includes(String(v))) return true;
+    throw new Error("Wear type must be stitched, unstitched, or modelwear.");
+  }),
   body("description").optional().isString(),
   body("features").optional().custom((v) => {
     if (Array.isArray(v)) return true;
@@ -137,6 +142,11 @@ const updateProductRules = [
   body("variants").optional().custom((v) => {
     if (isValidVariants(v)) return true;
     throw new Error("Variants must be an array of { size, stock }.");
+  }),
+  body("wearType").optional().custom((v) => {
+    if (v === undefined || v === null || v === "") return true;
+    if (["stitched", "unstitched", "modelwear"].includes(String(v))) return true;
+    throw new Error("Wear type must be stitched, unstitched, or modelwear.");
   }),
   body("features").optional().custom((v) => {
     if (Array.isArray(v)) return true;

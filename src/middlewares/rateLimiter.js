@@ -11,13 +11,15 @@ const apiLimiter = rateLimit({
   legacyHeaders: false,
   validate: { trustProxy: false },
   skip: (req) => {
+    const path = String(req.originalUrl || req.url);
     // Never throttle the lightweight stock ping used by the storefront's
     // 15s live-stock polling — a full bucket otherwise freezes the UI on
     // stale stock values for the whole 15-minute window.
     const isStockPing =
-      req.method === "GET" &&
-      String(req.originalUrl || req.url).startsWith(`${config.apiPrefix}/products/stock`);
-    return isStockPing;
+      req.method === "GET" && path.startsWith(`${config.apiPrefix}/products/stock`);
+    // Auth routes already use authLimiter — avoid double-counting login attempts.
+    const isAuthRoute = path.startsWith(`${config.apiPrefix}/auth/`);
+    return isStockPing || isAuthRoute;
   },
   message: {
     success: false,

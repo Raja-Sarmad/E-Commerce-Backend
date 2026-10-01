@@ -13,13 +13,14 @@ const adjustStock = asyncHandler(async (req, res) => {
     req.body.adjustment,
     req.body.reason,
     req.user?.name || "Admin",
-    req.body.size || null
+    req.body.size || null,
+    req.store._id
   );
   return sendResponse(res, 200, "Stock adjusted successfully.", product);
 });
 
 const listLowStock = asyncHandler(async (req, res) => {
-  const result = await inventoryService.listLowStock(req.query);
+  const result = await inventoryService.listLowStock(req.query, req.store._id);
   return sendResponse(res, 200, "Low stock products fetched successfully.", result);
 });
 

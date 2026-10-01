@@ -12,6 +12,11 @@ const listAllBrands = asyncHandler(async (_req, res) => {
   return sendResponse(res, 200, "Brands fetched successfully.", brands);
 });
 
+const listAdminBrands = asyncHandler(async (req, res) => {
+  const { brands, meta } = await brandService.listBrands(req.query, { admin: true });
+  return sendResponse(res, 200, "Brands fetched successfully.", brands, meta);
+});
+
 const getBrandById = asyncHandler(async (req, res) => {
   const brand = await brandService.getBrandById(req.params.id);
   return sendResponse(res, 200, "Brand fetched successfully.", brand);
@@ -32,4 +37,12 @@ const deleteBrand = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, "Brand deleted successfully.");
 });
 
-export { listBrands, listAllBrands, getBrandById, createBrand, updateBrand, deleteBrand };
+export {
+  listBrands,
+  listAllBrands,
+  listAdminBrands,
+  getBrandById,
+  createBrand,
+  updateBrand,
+  deleteBrand,
+};

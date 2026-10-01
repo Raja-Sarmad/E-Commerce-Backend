@@ -10,12 +10,17 @@ function stableQueryKey(query) {
     .join("&");
 }
 
-function getCatalogCache(type, key) {
-  return getCache(`${PREFIX}${type}:${key}`);
+function catalogKey(storeId, type, key) {
+  const sid = storeId ? String(storeId) : "default";
+  return `${PREFIX}${sid}:${type}:${key}`;
 }
 
-function setCatalogCache(type, key, value) {
-  setCache(`${PREFIX}${type}:${key}`, value, config.cache.catalogTtlMs);
+function getCatalogCache(storeId, type, key) {
+  return getCache(catalogKey(storeId, type, key));
+}
+
+function setCatalogCache(storeId, type, key, value) {
+  setCache(catalogKey(storeId, type, key), value, config.cache.catalogTtlMs);
 }
 
 function clearCatalogCache() {

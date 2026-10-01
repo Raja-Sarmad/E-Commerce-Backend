@@ -3,8 +3,10 @@ import { sendResponse } from "../../utils/ApiResponse.js";
 import { logFromRequest } from "../logs/logs.service.js";
 import * as orderService from "./orders.service.js";
 
+const storeId = (req) => req.store._id;
+
 const createOrder = asyncHandler(async (req, res) => {
-  const order = await orderService.createOrder(req.user._id, req.body);
+  const order = await orderService.createOrder(req.user._id, req.body, storeId(req));
   await logFromRequest(req, {
     type: "activity",
     action: `Order placed #${order.number}`,
@@ -15,33 +17,33 @@ const createOrder = asyncHandler(async (req, res) => {
 });
 
 const listMyOrders = asyncHandler(async (req, res) => {
-  const { orders, meta } = await orderService.listMyOrders(req.user._id, req.query);
+  const { orders, meta } = await orderService.listMyOrders(req.user._id, req.query, storeId(req));
   return sendResponse(res, 200, "Orders fetched successfully.", orders, meta);
 });
 
 const getMyOrderByNumber = asyncHandler(async (req, res) => {
-  const order = await orderService.getMyOrderByNumber(req.user._id, req.params.number);
+  const order = await orderService.getMyOrderByNumber(req.user._id, req.params.number, storeId(req));
   return sendResponse(res, 200, "Order fetched successfully.", order);
 });
 
 const cancelOrder = asyncHandler(async (req, res) => {
-  const order = await orderService.cancelOrder(req.user._id, req.params.id, req.body.reason);
+  const order = await orderService.cancelOrder(req.user._id, req.params.id, req.body.reason, storeId(req));
   return sendResponse(res, 200, "Order cancelled successfully.", order);
 });
 
 /* ── Admin ──────────────────────────────────────────────────── */
 const listAllOrders = asyncHandler(async (req, res) => {
-  const { orders, meta } = await orderService.listAllOrders(req.query);
+  const { orders, meta } = await orderService.listAllOrders(req.query, storeId(req));
   return sendResponse(res, 200, "Orders fetched successfully.", orders, meta);
 });
 
 const getOrderByNumber = asyncHandler(async (req, res) => {
-  const order = await orderService.getOrderByNumber(req.params.number);
+  const order = await orderService.getOrderByNumber(req.params.number, storeId(req));
   return sendResponse(res, 200, "Order fetched successfully.", order);
 });
 
 const updateOrderStatus = asyncHandler(async (req, res) => {
-  const order = await orderService.updateOrderStatus(req.params.id, req.body.status, req.body.note);
+  const order = await orderService.updateOrderStatus(req.params.id, req.body.status, req.body.note, storeId(req));
   await logFromRequest(req, {
     type: "activity",
     action: `Order #${order.number} status → ${order.status}`,
@@ -52,7 +54,7 @@ const updateOrderStatus = asyncHandler(async (req, res) => {
 });
 
 const addTracking = asyncHandler(async (req, res) => {
-  const order = await orderService.addTracking(req.params.id, req.body);
+  const order = await orderService.addTracking(req.params.id, req.body, storeId(req));
   return sendResponse(res, 200, "Tracking updated successfully.", order);
 });
 

@@ -9,9 +9,14 @@ const productSchema = new mongoose.Schema(
       trim: true,
       maxlength: [200, "Product name must be under 200 characters."],
     },
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      required: true,
+      index: true,
+    },
     slug: {
       type: String,
-      unique: true,
       lowercase: true,
       trim: true,
     },
@@ -20,6 +25,14 @@ const productSchema = new mongoose.Schema(
     category: { type: String, trim: true, index: true },
     categoryRef: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null },
     categorySlug: { type: String, trim: true },
+
+    /** Fashion wear type — helps customers know the product style. */
+    wearType: {
+      type: String,
+      enum: ["stitched", "unstitched", "modelwear", ""],
+      default: "",
+      index: true,
+    },
 
     description: { type: String, default: "" },
     features: [{ type: String }],
@@ -45,7 +58,7 @@ const productSchema = new mongoose.Schema(
 
     stock: { type: Number, default: 0, min: 0 },
     lowStockThreshold: { type: Number, default: 10 },
-    sku: { type: String, trim: true, unique: true, sparse: true },
+    sku: { type: String, trim: true, sparse: true },
 
     tags: [{ type: String }],
 
@@ -75,6 +88,8 @@ const productSchema = new mongoose.Schema(
 );
 
 /* ── Indexes (query optimization) ───────────────────────────── */
+productSchema.index({ storeId: 1, slug: 1 }, { unique: true });
+productSchema.index({ storeId: 1, sku: 1 }, { unique: true, sparse: true });
 productSchema.index({ name: 1 });
 productSchema.index({ category: 1, price: 1, createdAt: -1 });
 productSchema.index({ brand: 1, price: 1 });

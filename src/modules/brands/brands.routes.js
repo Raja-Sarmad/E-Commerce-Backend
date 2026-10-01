@@ -16,15 +16,20 @@ const createRules = [
   validate,
 ];
 
+const adminOnly = [authenticate, authorize(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER)];
+
 /* ── Public ─────────────────────────────────────────────────── */
 router.get("/", cacheHeaders(120), brandController.listBrands);
 router.get("/all", cacheHeaders(120), brandController.listAllBrands);
+
+/* Admin list must be registered before /:id or "admin" is captured as an id. */
+router.get("/admin/list", ...adminOnly, brandController.listAdminBrands);
+
 router.get("/:id", mongoIdRule, cacheHeaders(120), brandController.getBrandById);
 
-/* ── Admin ──────────────────────────────────────────────────── */
-router.use("/", authenticate, authorize(ROLES.ADMIN, ROLES.SUPER_ADMIN, ROLES.MANAGER));
-router.post("/", uploadSingle("logo"), createRules, brandController.createBrand);
-router.patch("/:id", mongoIdRule, uploadSingle("logo"), brandController.updateBrand);
-router.delete("/:id", mongoIdRule, brandController.deleteBrand);
+/* ── Admin write ────────────────────────────────────────────── */
+router.post("/", ...adminOnly, uploadSingle("logo"), createRules, brandController.createBrand);
+router.patch("/:id", ...adminOnly, mongoIdRule, uploadSingle("logo"), brandController.updateBrand);
+router.delete("/:id", ...adminOnly, mongoIdRule, brandController.deleteBrand);
 
 export default router;

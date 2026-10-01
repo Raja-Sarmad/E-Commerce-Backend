@@ -55,6 +55,12 @@ const orderSchema = new mongoose.Schema(
       index: true,
       default: generateOrderNumber,
     },
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      required: true,
+      index: true,
+    },
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

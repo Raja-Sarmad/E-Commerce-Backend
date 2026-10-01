@@ -6,22 +6,23 @@ import Vendor from "../vendors/vendors.model.js";
 import Notification from "../notifications/notifications.model.js";
 import LogEntry from "../logs/logs.model.js";
 
-async function getOverview() {
+async function getOverview(storeId) {
+  const productIds = await Product.find({ storeId }).distinct("_id");
   const [revenueAgg, ordersCount, customersCount, productsCount, lowStockCount, outOfStockCount, pendingVendors, reviewsCount, aovAgg] =
     await Promise.all([
       Order.aggregate([
-        { $match: { status: { $ne: "cancelled" } } },
+        { $match: { storeId, status: { $ne: "cancelled" } } },
         { $group: { _id: null, total: { $sum: "$total" }, avg: { $avg: "$total" } } },
       ]),
-      Order.countDocuments(),
+      Order.countDocuments({ storeId }),
       User.countDocuments({ role: "customer" }),
-      Product.countDocuments({ isActive: true }),
-      Product.countDocuments({ stock: { $gt: 0, $lte: 10 } }),
-      Product.countDocuments({ stock: 0 }),
+      Product.countDocuments({ storeId, isActive: true }),
+      Product.countDocuments({ storeId, stock: { $gt: 0, $lte: 10 } }),
+      Product.countDocuments({ storeId, stock: 0 }),
       Vendor.countDocuments({ status: "pending" }),
-      Review.countDocuments({ status: "approved" }),
+      Review.countDocuments({ status: "approved", product: { $in: productIds } }),
       Order.aggregate([
-        { $match: { status: { $ne: "cancelled" } } },
+        { $match: { storeId, status: { $ne: "cancelled" } } },
         { $group: { _id: null, avg: { $avg: "$total" } } },
       ]),
     ]);
@@ -39,13 +40,13 @@ async function getOverview() {
   };
 }
 
-async function getRevenueSeries(months = 8) {
+async function getRevenueSeries(months = 8, storeId) {
   const start = new Date();
   start.setMonth(start.getMonth() - (months - 1), 1);
   start.setHours(0, 0, 0, 0);
 
   const rows = await Order.aggregate([
-    { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: start } } },
+    { $match: { storeId, status: { $ne: "cancelled" }, createdAt: { $gte: start } } },
     {
       $group: {
         _id: { $dateToString: { format: "%Y-%m", date: "$createdAt" } },
@@ -66,9 +67,9 @@ async function getRevenueSeries(months = 8) {
   return out;
 }
 
-async function getSalesByCategory() {
+async function getSalesByCategory(storeId) {
   const rows = await Order.aggregate([
-    { $match: { status: { $ne: "cancelled" } } },
+    { $match: { storeId, status: { $ne: "cancelled" } } },
     { $unwind: "$items" },
     {
       $group: {
@@ -83,13 +84,13 @@ async function getSalesByCategory() {
   return rows.map((r) => ({ name: r._id, value: Math.round(r.value * 100) / 100, orders: r.orders }));
 }
 
-async function getDailyOrders(days = 7) {
+async function getDailyOrders(days = 7, storeId) {
   const start = new Date();
   start.setDate(start.getDate() - (days - 1));
   start.setHours(0, 0, 0, 0);
 
   const rows = await Order.aggregate([
-    { $match: { createdAt: { $gte: start } } },
+    { $match: { storeId, createdAt: { $gte: start } } },
     { $group: { _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } }, count: { $sum: 1 } } },
   ]);
 
@@ -107,9 +108,9 @@ async function getDailyOrders(days = 7) {
   return out;
 }
 
-async function getTopProducts(limit = 5) {
+async function getTopProducts(limit = 5, storeId) {
   const soldRows = await Order.aggregate([
-    { $match: { status: { $nin: ["cancelled"] } } },
+    { $match: { storeId, status: { $nin: ["cancelled"] } } },
     { $unwind: "$items" },
     {
       $group: {
@@ -123,7 +124,7 @@ async function getTopProducts(limit = 5) {
   ]);
 
   if (soldRows.length === 0) {
-    return Product.find({ isActive: true })
+    return Product.find({ storeId, isActive: true })
       .sort({ totalSold: -1, reviewsCount: -1 })
       .limit(limit)
       .select("name price rating reviewsCount images stock totalSold")
@@ -133,6 +134,7 @@ async function getTopProducts(limit = 5) {
   const soldMap = new Map(soldRows.map((row) => [String(row._id), row]));
   const products = await Product.find({
     _id: { $in: soldRows.map((row) => row._id) },
+    storeId,
     isActive: true,
   })
     .select("name price rating reviewsCount images stock totalSold")
@@ -150,16 +152,16 @@ async function getTopProducts(limit = 5) {
     .sort((a, b) => (b.totalSold ?? 0) - (a.totalSold ?? 0));
 }
 
-async function getLowStockProducts(limit = 5) {
-  return Product.find({ stock: { $lte: 10 } })
+async function getLowStockProducts(limit = 5, storeId) {
+  return Product.find({ storeId, stock: { $lte: 10 } })
     .sort({ stock: 1 })
     .limit(limit)
     .select("name price stock sku")
     .lean();
 }
 
-async function getRecentOrders(limit = 6) {
-  return Order.find()
+async function getRecentOrders(limit = 6, storeId) {
+  return Order.find({ storeId })
     .sort({ createdAt: -1 })
     .limit(limit)
     .populate("user", "name email")
@@ -167,8 +169,9 @@ async function getRecentOrders(limit = 6) {
     .lean();
 }
 
-async function getRecentReviews(limit = 5) {
-  return Review.find({ status: "approved" })
+async function getRecentReviews(limit = 5, storeId) {
+  const productIds = await Product.find({ storeId }).distinct("_id");
+  return Review.find({ status: "approved", product: { $in: productIds } })
     .sort({ createdAt: -1 })
     .limit(limit)
     .populate("product", "name slug")
@@ -183,7 +186,7 @@ async function getRecentNotifications(limit = 5) {
     .lean();
 }
 
-async function getRecentActivity(limit = 8) {
+async function getRecentActivity(limit = 8, storeId) {
   const logs = await LogEntry.find()
     .sort({ createdAt: -1 })
     .limit(limit)
@@ -193,8 +196,9 @@ async function getRecentActivity(limit = 8) {
   if (logs.length > 0) return logs;
 
   const activities = [];
+  const productIds = await Product.find({ storeId }).distinct("_id");
 
-  const recentOrders = await Order.find()
+  const recentOrders = await Order.find({ storeId })
     .sort({ createdAt: -1 })
     .limit(3)
     .select("number status createdAt user")
@@ -212,7 +216,7 @@ async function getRecentActivity(limit = 8) {
     });
   }
 
-  const recentProducts = await Product.find()
+  const recentProducts = await Product.find({ storeId })
     .sort({ createdAt: -1 })
     .limit(2)
     .select("name createdAt")
@@ -229,7 +233,7 @@ async function getRecentActivity(limit = 8) {
     });
   }
 
-  const recentReviews = await Review.find({ status: "approved" })
+  const recentReviews = await Review.find({ status: "approved", product: { $in: productIds } })
     .sort({ createdAt: -1 })
     .limit(2)
     .select("name rating body createdAt product")
@@ -251,7 +255,7 @@ async function getRecentActivity(limit = 8) {
   return activities.slice(0, limit);
 }
 
-async function getRevenueComparison() {
+async function getRevenueComparison(storeId) {
   const now = new Date();
   const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -263,25 +267,25 @@ async function getRevenueComparison() {
 
   const [thisMonth, lastMonth, thisYear, lastYear, thisMonthCustomers, lastMonthCustomers, thisMonthOrders, lastMonthOrders] = await Promise.all([
     Order.aggregate([
-      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: thisMonthStart } } },
+      { $match: { storeId, status: { $ne: "cancelled" }, createdAt: { $gte: thisMonthStart } } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.aggregate([
-      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } } },
+      { $match: { storeId, status: { $ne: "cancelled" }, createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.aggregate([
-      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: thisYearStart } } },
+      { $match: { storeId, status: { $ne: "cancelled" }, createdAt: { $gte: thisYearStart } } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     Order.aggregate([
-      { $match: { status: { $ne: "cancelled" }, createdAt: { $gte: lastYearStart, $lte: lastYearEnd } } },
+      { $match: { storeId, status: { $ne: "cancelled" }, createdAt: { $gte: lastYearStart, $lte: lastYearEnd } } },
       { $group: { _id: null, total: { $sum: "$total" }, count: { $sum: 1 } } },
     ]),
     User.countDocuments({ role: "customer", createdAt: { $gte: thisMonthStart } }),
     User.countDocuments({ role: "customer", createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } }),
-    Order.countDocuments({ createdAt: { $gte: thisMonthStart } }),
-    Order.countDocuments({ createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } }),
+    Order.countDocuments({ storeId, createdAt: { $gte: thisMonthStart } }),
+    Order.countDocuments({ storeId, createdAt: { $gte: lastMonthStart, $lte: lastMonthEnd } }),
   ]);
 
   const tm = thisMonth[0]?.total || 0;

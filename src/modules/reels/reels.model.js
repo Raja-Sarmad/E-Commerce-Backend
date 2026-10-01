@@ -2,6 +2,12 @@ import mongoose from "mongoose";
 
 const reelSchema = new mongoose.Schema(
   {
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      required: true,
+      index: true,
+    },
     title: { type: String, required: [true, "Reel title is required."], trim: true },
     video: { type: String, required: [true, "Video URL is required."] },
     poster: { type: String, default: "" },
@@ -20,7 +26,8 @@ const reelSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-reelSchema.index({ slot: 1, active: 1 });
+reelSchema.index({ storeId: 1, slot: 1 }, { unique: true });
+reelSchema.index({ storeId: 1, active: 1 });
 
 const Reel = mongoose.model("Reel", reelSchema);
 

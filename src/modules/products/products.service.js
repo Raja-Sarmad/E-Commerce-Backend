@@ -51,9 +51,9 @@ function buildPublicFilter(query) {
 
 let totalSoldSynced = false;
 
-async function syncTotalSoldFromOrders() {
+async function syncTotalSoldFromOrders(storeId) {
   const rows = await Order.aggregate([
-    { $match: { status: { $nin: ["cancelled"] } } },
+    { $match: { storeId, status: { $nin: ["cancelled"] } } },
     { $unwind: "$items" },
     {
       $group: {
@@ -63,7 +63,7 @@ async function syncTotalSoldFromOrders() {
     },
   ]);
 
-  await Product.updateMany({}, { $set: { totalSold: 0 } });
+  await Product.updateMany({ storeId }, { $set: { totalSold: 0 } });
   if (rows.length) {
     await Product.bulkWrite(
       rows.map((row) => ({
@@ -77,19 +77,19 @@ async function syncTotalSoldFromOrders() {
   totalSoldSynced = true;
 }
 
-async function ensureTotalSoldSynced() {
+async function ensureTotalSoldSynced(storeId) {
   if (totalSoldSynced) return;
-  const hasOrders = await Order.exists({ status: { $nin: ["cancelled"] } });
+  const hasOrders = await Order.exists({ storeId, status: { $nin: ["cancelled"] } });
   if (!hasOrders) {
     totalSoldSynced = true;
     return;
   }
-  const hasSold = await Product.exists({ totalSold: { $gt: 0 } });
+  const hasSold = await Product.exists({ storeId, totalSold: { $gt: 0 } });
   if (hasSold) {
     totalSoldSynced = true;
     return;
   }
-  await syncTotalSoldFromOrders();
+  await syncTotalSoldFromOrders(storeId);
 }
 
 function buildAdminFilter(query) {
@@ -119,15 +119,17 @@ function buildAdminFilter(query) {
   return filter;
 }
 
-async function listProducts(query, { admin = false } = {}) {
+async function listProducts(query, { admin = false, storeId } = {}) {
+  if (!storeId) throw new AppError("Store context is required.", 500);
+
   if (!admin) {
     const cacheKey = stableQueryKey(query);
-    const cached = getCatalogCache("products", cacheKey);
+    const cached = getCatalogCache(storeId, "products", cacheKey);
     if (cached) return cached;
   }
 
   if (!admin && query.bestSeller === "true") {
-    await ensureTotalSoldSynced();
+    await ensureTotalSoldSynced(storeId);
   }
 
   const { page, limit, skip } = getPagination(query);
@@ -140,6 +142,7 @@ async function listProducts(query, { admin = false } = {}) {
       : sort;
 
   const filter = admin ? buildAdminFilter(query) : buildPublicFilter(query);
+  filter.storeId = storeId;
 
   const [products, total] = await Promise.all([
     Product.find(filter).sort(effectiveSort).skip(skip).limit(limit).lean(),
@@ -152,22 +155,24 @@ async function listProducts(query, { admin = false } = {}) {
   };
 
   if (!admin) {
-    setCatalogCache("products", stableQueryKey(query), result);
+    setCatalogCache(storeId, "products", stableQueryKey(query), result);
   }
 
   return result;
 }
 
-async function getProductById(productId, { admin = false } = {}) {
+async function getProductById(productId, { admin = false, storeId } = {}) {
   const filter = { _id: productId };
+  if (storeId) filter.storeId = storeId;
   if (!admin) filter.isActive = true;
   const product = await Product.findOne(filter);
   if (!product) throw new AppError("Product not found.", 404);
   return product;
 }
 
-async function getProductBySlug(slug, { admin = false } = {}) {
+async function getProductBySlug(slug, { admin = false, storeId } = {}) {
   const filter = { slug };
+  if (storeId) filter.storeId = storeId;
   if (!admin) filter.isActive = true;
   const product = await Product.findOne(filter);
   if (!product) throw new AppError("Product not found.", 404);
@@ -177,6 +182,7 @@ async function getProductBySlug(slug, { admin = false } = {}) {
 async function getRelatedProducts(product, limit = 4) {
   return Product.find({
     _id: { $ne: product._id },
+    storeId: product.storeId,
     isActive: true,
     $or: [
       { category: product.category },
@@ -188,23 +194,26 @@ async function getRelatedProducts(product, limit = 4) {
     .lean();
 }
 
-async function getProductWithRelatedBySlug(slug) {
-  const cached = getCatalogCache("product-slug", slug);
+async function getProductWithRelatedBySlug(slug, storeId) {
+  const cached = getCatalogCache(storeId, "product-slug", slug);
   if (cached) return cached;
 
-  const product = await getProductBySlug(slug);
+  const product = await getProductBySlug(slug, { storeId });
   const related = await getRelatedProducts(product);
   const result = { product, related };
-  setCatalogCache("product-slug", slug, result);
+  setCatalogCache(storeId, "product-slug", slug, result);
   return result;
 }
 
 /** Live stock lookup — never cached (used by cart/checkout and live UI). */
-async function getStockByIds(ids = []) {
+async function getStockByIds(ids = [], storeId) {
   const unique = [...new Set((Array.isArray(ids) ? ids : [ids]).filter(Boolean))];
   if (!unique.length) return [];
 
-  const rows = await Product.find({ _id: { $in: unique }, isActive: true })
+  const filter = { _id: { $in: unique }, isActive: true };
+  if (storeId) filter.storeId = storeId;
+
+  const rows = await Product.find(filter)
     .select("_id stock variants")
     .lean();
 
@@ -225,7 +234,8 @@ async function getStockByIds(ids = []) {
   }));
 }
 
-async function createProduct(data, files = []) {
+async function createProduct(data, files = [], storeId) {
+  if (!storeId) throw new AppError("Store context is required.", 500);
   let urlImages = [];
 
   if (Array.isArray(data.images)) {
@@ -316,15 +326,17 @@ async function createProduct(data, files = []) {
     cleanData.stock = cleanData.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
   }
 
-  const product = await Product.create({ ...cleanData, slug, images, publicIds });
+  const product = await Product.create({ ...cleanData, slug, images, publicIds, storeId });
 
   await checkLowStock(product);
   clearCatalogCache();
   return product;
 }
 
-async function updateProduct(productId, data, files = []) {
-  const product = await Product.findById(productId);
+async function updateProduct(productId, data, files = [], storeId) {
+  const filter = { _id: productId };
+  if (storeId) filter.storeId = storeId;
+  const product = await Product.findOne(filter);
   if (!product) throw new AppError("Product not found.", 404);
 
   let newUrlImages = [];
@@ -435,8 +447,10 @@ async function updateProduct(productId, data, files = []) {
   return product;
 }
 
-async function deleteProduct(productId) {
-  const product = await Product.findById(productId);
+async function deleteProduct(productId, storeId) {
+  const filter = { _id: productId };
+  if (storeId) filter.storeId = storeId;
+  const product = await Product.findOne(filter);
   if (!product) throw new AppError("Product not found.", 404);
 
   for (const publicId of product.publicIds || []) {
@@ -447,8 +461,10 @@ async function deleteProduct(productId) {
   return product;
 }
 
-async function removeImage(productId, publicId) {
-  const product = await Product.findById(productId);
+async function removeImage(productId, publicId, storeId) {
+  const filter = { _id: productId };
+  if (storeId) filter.storeId = storeId;
+  const product = await Product.findOne(filter);
   if (!product) throw new AppError("Product not found.", 404);
   product.images = product.images.filter(
     (_url, i) => product.publicIds[i] !== publicId

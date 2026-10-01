@@ -44,7 +44,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Refresh-Token"],
+    allowedHeaders: ["Content-Type", "Authorization", "X-Refresh-Token", "X-Store-Slug"],
   }),
 );
 

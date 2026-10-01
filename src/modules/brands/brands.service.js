@@ -12,17 +12,30 @@ import {
 async function listBrands(query, { admin = false } = {}) {
   if (!admin) {
     const cacheKey = stableQueryKey(query);
-    const cached = getCatalogCache("brands", cacheKey);
+    const cached = getCatalogCache("global", "brands", cacheKey);
     if (cached) return cached;
   }
 
-  const { page, limit, skip } = getPagination(query);
   const sort = getSort(query, ["name", "createdAt"]);
-
   const filter = {};
   if (!admin) filter.isActive = true;
   if (query.search) filter.name = new RegExp(query.search.trim(), "i");
 
+  // Admin list returns the full set so dashboard actions (delete/edit) stay in sync.
+  if (admin) {
+    const brands = await Brand.find(filter).sort(sort).lean();
+    return {
+      brands,
+      meta: getPaginationMeta({
+        page: 1,
+        limit: brands.length || 1,
+        total: brands.length,
+        totalPages: 1,
+      }),
+    };
+  }
+
+  const { page, limit, skip } = getPagination(query);
   const [brands, total] = await Promise.all([
     Brand.find(filter).sort(sort).skip(skip).limit(limit).lean(),
     Brand.countDocuments(filter),
@@ -33,19 +46,16 @@ async function listBrands(query, { admin = false } = {}) {
     meta: getPaginationMeta({ page, limit, total, totalPages: Math.ceil(total / limit) }),
   };
 
-  if (!admin) {
-    setCatalogCache("brands", stableQueryKey(query), result);
-  }
-
+  setCatalogCache("global", "brands", stableQueryKey(query), result);
   return result;
 }
 
 async function listAllBrands() {
-  const cached = getCatalogCache("brands-all", "public");
+  const cached = getCatalogCache("global", "brands-all", "public");
   if (cached) return cached;
 
   const brands = await Brand.find({ isActive: true }).sort({ name: 1 }).lean();
-  setCatalogCache("brands-all", "public", brands);
+  setCatalogCache("global", "brands-all", "public", brands);
   return brands;
 }
 

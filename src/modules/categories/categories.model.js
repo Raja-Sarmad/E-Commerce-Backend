@@ -3,8 +3,14 @@ import { createSlug } from "../../utils/slugify.js";
 
 const categorySchema = new mongoose.Schema(
   {
+    storeId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Store",
+      required: true,
+      index: true,
+    },
     name: { type: String, required: [true, "Category name is required."], trim: true },
-    slug: { type: String, unique: true, lowercase: true, trim: true, index: true },
+    slug: { type: String, lowercase: true, trim: true, index: true },
     description: { type: String, default: "" },
     image: { type: String, default: "" },
     publicId: { type: String, default: "" },
@@ -18,6 +24,7 @@ const categorySchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+categorySchema.index({ storeId: 1, slug: 1 }, { unique: true });
 categorySchema.index({ name: 1 });
 categorySchema.index({ parent: 1, order: 1 });
 

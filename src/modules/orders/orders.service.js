@@ -12,7 +12,8 @@ import { clearCatalogCache } from "../../utils/catalogCache.js";
 
 const ORDERABLE_STATUS = new Set(["pending", "processing", "shipped", "delivered", "cancelled"]);
 
-async function createOrder(userId, data) {
+async function createOrder(userId, data, storeId) {
+  if (!storeId) throw new AppError("Store context is required.", 500);
   const settings = await settingsService.getSettings();
   const { items, couponCode, shippingAddress, billingAddress, paymentMethod, deliveryOption } = data;
 
@@ -24,7 +25,7 @@ async function createOrder(userId, data) {
   }
 
   const ids = items.map((i) => i.productId);
-  const products = await Product.find({ _id: { $in: ids }, isActive: true });
+  const products = await Product.find({ _id: { $in: ids }, storeId, isActive: true });
 
   const productMap = new Map(products.map((p) => [String(p._id), p]));
 
@@ -137,6 +138,7 @@ async function createOrder(userId, data) {
     }
 
     const order = await Order.create({
+      storeId,
       user: userId,
       items: orderItems,
       subtotal,
@@ -206,11 +208,11 @@ async function createOrder(userId, data) {
   }
 }
 
-async function listMyOrders(userId, query) {
+async function listMyOrders(userId, query, storeId) {
   const { page, limit, skip } = getPagination(query);
   const sort = getSort(query, ["createdAt", "total", "status"]);
 
-  const filter = { user: userId };
+  const filter = { user: userId, storeId };
   if (query.status && ORDERABLE_STATUS.has(query.status)) filter.status = query.status;
   if (query.search) {
     filter.number = new RegExp(query.search.trim(), "i");
@@ -228,17 +230,17 @@ async function listMyOrders(userId, query) {
   };
 }
 
-async function getMyOrderByNumber(userId, number) {
-  const order = await Order.findOne({ user: userId, number }).lean();
+async function getMyOrderByNumber(userId, number, storeId) {
+  const order = await Order.findOne({ user: userId, number, storeId }).lean();
   if (!order) throw new AppError("Order not found.", 404);
   return order;
 }
 
-async function listAllOrders(query) {
+async function listAllOrders(query, storeId) {
   const { page, limit, skip } = getPagination(query);
   const sort = getSort(query, ["createdAt", "total", "status", "number"]);
 
-  const filter = {};
+  const filter = { storeId };
   if (query.status && ORDERABLE_STATUS.has(query.status)) filter.status = query.status;
   if (query.search) {
     filter.$or = [
@@ -267,16 +269,16 @@ async function listAllOrders(query) {
   };
 }
 
-async function getOrderByNumber(number) {
-  const order = await Order.findOne({ number }).populate("user", "name email").lean();
+async function getOrderByNumber(number, storeId) {
+  const order = await Order.findOne({ number, storeId }).populate("user", "name email").lean();
   if (!order) throw new AppError("Order not found.", 404);
   return order;
 }
 
-async function updateOrderStatus(orderId, status, note = "") {
+async function updateOrderStatus(orderId, status, note = "", storeId) {
   if (!ORDERABLE_STATUS.has(status)) throw new AppError("Invalid order status.", 400);
 
-  const order = await Order.findById(orderId);
+  const order = await Order.findOne({ _id: orderId, storeId });
   if (!order) throw new AppError("Order not found.", 404);
 
   order.status = status;
@@ -323,8 +325,8 @@ async function updateOrderStatus(orderId, status, note = "") {
   return order;
 }
 
-async function addTracking(orderId, { carrier, trackingNumber }) {
-  const order = await Order.findById(orderId);
+async function addTracking(orderId, { carrier, trackingNumber }, storeId) {
+  const order = await Order.findOne({ _id: orderId, storeId });
   if (!order) throw new AppError("Order not found.", 404);
   order.tracking.carrier = carrier;
   order.tracking.trackingNumber = trackingNumber;
@@ -337,8 +339,8 @@ async function addTracking(orderId, { carrier, trackingNumber }) {
   return order;
 }
 
-async function cancelOrder(userId, orderId, reason = "") {
-  const order = await Order.findById(orderId);
+async function cancelOrder(userId, orderId, reason = "", storeId) {
+  const order = await Order.findOne({ _id: orderId, storeId });
   if (!order) throw new AppError("Order not found.", 404);
   if (String(order.user) !== String(userId)) {
     throw new AppError("You do not have permission to cancel this order.", 403);

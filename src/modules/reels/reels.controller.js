@@ -2,33 +2,35 @@ import asyncHandler from "../../utils/asyncHandler.js";
 import { sendResponse } from "../../utils/ApiResponse.js";
 import * as reelService from "./reels.service.js";
 
+const storeId = (req) => req.store._id;
+
 const listActiveReels = asyncHandler(async (req, res) => {
-  const reels = await reelService.listActiveReels();
+  const reels = await reelService.listActiveReels(storeId(req));
   return sendResponse(res, 200, "Reels fetched successfully.", reels);
 });
 
 const listAllReels = asyncHandler(async (req, res) => {
-  const reels = await reelService.listAllReels();
+  const reels = await reelService.listAllReels(storeId(req));
   return sendResponse(res, 200, "Reels fetched successfully.", reels);
 });
 
 const getReelById = asyncHandler(async (req, res) => {
-  const reel = await reelService.getReelById(req.params.id);
+  const reel = await reelService.getReelById(req.params.id, storeId(req));
   return sendResponse(res, 200, "Reel fetched successfully.", reel);
 });
 
 const createReel = asyncHandler(async (req, res) => {
-  const reel = await reelService.createReel(req.body);
+  const reel = await reelService.createReel(req.body, storeId(req));
   return sendResponse(res, 201, "Reel created successfully.", reel);
 });
 
 const updateReel = asyncHandler(async (req, res) => {
-  const reel = await reelService.updateReel(req.params.id, req.body);
+  const reel = await reelService.updateReel(req.params.id, req.body, storeId(req));
   return sendResponse(res, 200, "Reel updated successfully.", reel);
 });
 
 const deleteReel = asyncHandler(async (req, res) => {
-  await reelService.deleteReel(req.params.id);
+  await reelService.deleteReel(req.params.id, storeId(req));
   return sendResponse(res, 200, "Reel deleted successfully.");
 });
 

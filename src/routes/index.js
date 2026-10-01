@@ -1,4 +1,6 @@
 import express from "express";
+import resolveStore from "../middlewares/resolveStore.js";
+
 const router = express.Router();
 
 import authRoutes from "../modules/auth/auth.routes.js";
@@ -28,6 +30,7 @@ import roleRoutes from "../modules/roles/roles.routes.js";
 import mediaRoutes from "../modules/media/media.routes.js";
 import settingsRoutes from "../modules/settings/settings.routes.js";
 import logRoutes from "../modules/logs/logs.routes.js";
+import storeRoutes from "../modules/stores/stores.routes.js";
 
 /* ── Health ─────────────────────────────────────────────────── */
 router.get("/health", (_req, res) =>
@@ -43,7 +46,11 @@ router.get("/health", (_req, res) =>
   })
 );
 
+/* ── Store context (X-Store-Slug) ───────────────────────────── */
+router.use(resolveStore);
+
 /* ── Feature modules ────────────────────────────────────────── */
+router.use("/stores", storeRoutes);
 router.use("/auth", authRoutes);
 router.use("/users", userRoutes);
 router.use("/products", productRoutes);

@@ -3,24 +3,26 @@ import { sendResponse } from "../../utils/ApiResponse.js";
 import { logFromRequest } from "../logs/logs.service.js";
 import * as productService from "./products.service.js";
 
+const storeId = (req) => req.store._id;
+
 const listProducts = asyncHandler(async (req, res) => {
-  const { products, meta } = await productService.listProducts(req.query);
+  const { products, meta } = await productService.listProducts(req.query, { storeId: storeId(req) });
   return sendResponse(res, 200, "Products fetched successfully.", products, meta);
 });
 
 const listAdminProducts = asyncHandler(async (req, res) => {
-  const { products, meta } = await productService.listProducts(req.query, { admin: true });
+  const { products, meta } = await productService.listProducts(req.query, { admin: true, storeId: storeId(req) });
   return sendResponse(res, 200, "Products fetched successfully.", products, meta);
 });
 
 const getProduct = asyncHandler(async (req, res) => {
-  const product = await productService.getProductById(req.params.id);
+  const product = await productService.getProductById(req.params.id, { storeId: storeId(req) });
   const related = await productService.getRelatedProducts(product);
   return sendResponse(res, 200, "Product fetched successfully.", { ...product.toJSON(), related });
 });
 
 const getProductBySlug = asyncHandler(async (req, res) => {
-  const { product, related } = await productService.getProductWithRelatedBySlug(req.params.slug);
+  const { product, related } = await productService.getProductWithRelatedBySlug(req.params.slug, storeId(req));
   return sendResponse(res, 200, "Product fetched successfully.", { ...product.toJSON(), related });
 });
 
@@ -28,17 +30,17 @@ const getProductStock = asyncHandler(async (req, res) => {
   const raw = req.query.ids;
   const ids = typeof raw === "string" ? raw.split(",").map((id) => id.trim()).filter(Boolean) : [];
   res.set("Cache-Control", "no-store");
-  const stock = await productService.getStockByIds(ids);
+  const stock = await productService.getStockByIds(ids, storeId(req));
   return sendResponse(res, 200, "Stock fetched successfully.", stock);
 });
 
 const getAdminProduct = asyncHandler(async (req, res) => {
-  const product = await productService.getProductById(req.params.id, { admin: true });
+  const product = await productService.getProductById(req.params.id, { admin: true, storeId: storeId(req) });
   return sendResponse(res, 200, "Product fetched successfully.", product);
 });
 
 const createProduct = asyncHandler(async (req, res) => {
-  const product = await productService.createProduct(req.body, req.files);
+  const product = await productService.createProduct(req.body, req.files, storeId(req));
   await logFromRequest(req, {
     type: "audit",
     action: `Product created: ${product.name}`,
@@ -49,7 +51,7 @@ const createProduct = asyncHandler(async (req, res) => {
 });
 
 const updateProduct = asyncHandler(async (req, res) => {
-  const product = await productService.updateProduct(req.params.id, req.body, req.files);
+  const product = await productService.updateProduct(req.params.id, req.body, req.files, storeId(req));
   await logFromRequest(req, {
     type: "audit",
     action: `Product updated: ${product.name}`,
@@ -60,8 +62,8 @@ const updateProduct = asyncHandler(async (req, res) => {
 });
 
 const deleteProduct = asyncHandler(async (req, res) => {
-  const product = await productService.getProductById(req.params.id, { admin: true });
-  await productService.deleteProduct(req.params.id);
+  const product = await productService.getProductById(req.params.id, { admin: true, storeId: storeId(req) });
+  await productService.deleteProduct(req.params.id, storeId(req));
   await logFromRequest(req, {
     type: "audit",
     action: `Product deleted: ${product.name}`,
@@ -72,7 +74,7 @@ const deleteProduct = asyncHandler(async (req, res) => {
 });
 
 const removeImage = asyncHandler(async (req, res) => {
-  const product = await productService.removeImage(req.params.id, req.body.publicId);
+  const product = await productService.removeImage(req.params.id, req.body.publicId, storeId(req));
   return sendResponse(res, 200, "Image removed successfully.", product);
 });
 

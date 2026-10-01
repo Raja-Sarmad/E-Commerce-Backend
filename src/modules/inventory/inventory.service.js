@@ -27,8 +27,10 @@ async function listHistory(query) {
   };
 }
 
-async function adjustStock(productId, adjustment, reason = "", actor = "System", size = null) {
-  const product = await Product.findById(productId);
+async function adjustStock(productId, adjustment, reason = "", actor = "System", size = null, storeId) {
+  const filter = { _id: productId };
+  if (storeId) filter.storeId = storeId;
+  const product = await Product.findOne(filter);
   if (!product) throw new AppError("Product not found.", 404);
 
   if (size && product.variants && product.variants.length > 0) {
@@ -77,9 +79,10 @@ async function adjustStock(productId, adjustment, reason = "", actor = "System",
   return product;
 }
 
-async function listLowStock(query = {}) {
+async function listLowStock(query = {}, storeId) {
   const threshold = query.threshold ? Number(query.threshold) : 10;
   const products = await Product.find({
+    ...(storeId ? { storeId } : {}),
     $or: [
       { stock: { $gt: 0, $lte: threshold } },
       { variants: { $elemMatch: { stock: { $gt: 0, $lte: threshold } } } },
