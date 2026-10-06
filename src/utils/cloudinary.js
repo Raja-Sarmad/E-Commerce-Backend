@@ -1,4 +1,5 @@
 import cloudinaryModule from "cloudinary";
+import { Blob } from "node:buffer";
 import { randomUUID } from "node:crypto";
 import { mkdir, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
@@ -220,6 +221,7 @@ async function uploadUrlToCloudinary(imageUrl, folder = config.cloudinary.folder
   const form = new FormData();
   form.append("file", `data:${contentType};base64,${buffer.toString("base64")}`);
   form.append("upload_preset", uploadPreset);
+  if (folder) form.append("folder", folder);
 
   const cloudResponse = await fetch(
     `https://api.cloudinary.com/v1_1/${cloudName}/${resourceType}/upload`,

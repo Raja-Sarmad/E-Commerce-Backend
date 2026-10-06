@@ -1,5 +1,5 @@
 /**
- * NovaMart Seed Script
+ * Sab Pehno Seed Script
  *
  * Creates:
  *  - Default admin user (from .env, safe to re-run)
@@ -22,12 +22,16 @@ import Faq from "../modules/faqs/faqs.model.js";
 import BlogPost from "../modules/blog/blog.model.js";
 import Banner from "../modules/banners/banners.model.js";
 import Order from "../modules/orders/orders.model.js";
+import Store from "../modules/stores/stores.model.js";
 import { ROLES } from "../constants/index.js";
 import { ensureDefaultPaymentMethods } from "./bootstrap.js";
 import { createSlug } from "../utils/slugify.js";
 
 const DESTROY = process.argv.includes("--destroy");
 const WITH_DEMO = process.argv.includes("--demo");
+
+const DEFAULT_STORE_SLUG = "ecommerce";
+const DEFAULT_STORE_NAME = "Sab Pehno";
 
 /* ── Sample data ────────────────────────────────────────────── */
 
@@ -131,7 +135,7 @@ const faqSeeds = [
   { category: "Returns & Refunds", question: "What is your return policy?", answer: "We offer a 30-day return window on most items in original condition.", order: 1, active: true },
   { category: "Returns & Refunds", question: "When will I get my refund?", answer: "Refunds are processed within 2-3 business days of receiving the return.", order: 2, active: true },
   { category: "Payments", question: "What payment methods do you accept?", answer: "All major cards, PayPal, Apple Pay, Google Pay, and cash on delivery.", order: 1, active: true },
-  { category: "Payments", question: "Is it safe to shop on NovaMart?", answer: "Yes. Checkout is secured with 256-bit encryption.", order: 2, active: true },
+  { category: "Payments", question: "Is it safe to shop on Sab Pehno?", answer: "Yes. Checkout is secured with 256-bit encryption.", order: 2, active: true },
 ];
 
 const blogSeeds = [
@@ -139,7 +143,7 @@ const blogSeeds = [
     title: "How to Choose the Perfect Wireless Headphones in 2026",
     excerpt: "From noise cancellation to battery life, here's everything you need to know before buying your next pair of headphones.",
     content: ["Wireless headphones have come a long way.", "Battery life matters more than most people think.", "Sound quality is subjective."],
-    category: "Buying Guides", author: "NovaMart Editorial",
+    category: "Buying Guides", author: "Sab Pehno Editorial",
     tags: ["audio", "headphones"], featured: true, status: "published", views: 12480,
     coverImage: "https://picsum.photos/seed/blog-1/900/520",
   },
@@ -147,7 +151,7 @@ const blogSeeds = [
     title: "Skincare Routine 101: Build Your Routine in 5 Steps",
     excerpt: "Cleanser, serum, moisturizer, SPF — demystify the modern skincare routine with this beginner-friendly guide.",
     content: ["A great skincare routine doesn't need ten products.", "Step one is cleansing.", "Step four is SPF."],
-    category: "Beauty & Care", author: "NovaMart Editorial",
+    category: "Beauty & Care", author: "Sab Pehno Editorial",
     tags: ["skincare", "beauty"], featured: true, status: "published", views: 9804,
     coverImage: "https://picsum.photos/seed/blog-2/900/520",
   },
@@ -155,7 +159,7 @@ const blogSeeds = [
     title: "Smart Home Essentials for Every Budget",
     excerpt: "Build a smart home without breaking the bank. Our editors pick the best-value devices.",
     content: ["Smart home tech is more affordable than ever.", "Start with a smart speaker.", "Automate your lighting."],
-    category: "Home & Living", author: "NovaMart Editorial",
+    category: "Home & Living", author: "Sab Pehno Editorial",
     tags: ["smart-home", "tech"], status: "draft", views: 0,
     coverImage: "https://picsum.photos/seed/blog-3/900/520",
   },
@@ -196,12 +200,22 @@ async function seedAdmin() {
   return admin;
 }
 
-async function seedCatalog() {
+async function ensureStore() {
+  const store = await Store.findOneAndUpdate(
+    { slug: DEFAULT_STORE_SLUG },
+    { $setOnInsert: { slug: DEFAULT_STORE_SLUG, name: DEFAULT_STORE_NAME, isActive: true } },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+  console.log(`[seed] Store ready: ${store.slug} (${store._id})`);
+  return store;
+}
+
+async function seedCatalog(store) {
   const categories = await Category.insertMany(
-    categorySeeds.map((c) => ({ ...c, slug: createSlug(c.name) })),
+    categorySeeds.map((c) => ({ ...c, slug: createSlug(c.name), storeId: store._id })),
     { ordered: false }
   ).catch((err) => (err.code === 11000 ? Category.find() : Promise.reject(err)));
-  console.log(`[seed] Categories: ${categories.length}`);
+  console.log(`[seed] Categories: ${(await categories).length}`);
 
   await Brand.insertMany(
     brandSeeds.map((b) => ({ ...b, slug: createSlug(b.name) })),
@@ -209,10 +223,10 @@ async function seedCatalog() {
   ).catch((err) => (err.code === 11000 ? null : Promise.reject(err)));
 
   await Product.insertMany(
-    productSeeds.map((p) => ({ ...p, slug: createSlug(p.name) })),
+    productSeeds.map((p) => ({ ...p, slug: createSlug(p.name), storeId: store._id })),
     { ordered: false }
   ).catch((err) => (err.code === 11000 ? null : Promise.reject(err)));
-  console.log(`[seed] Products: ${productSeeds.length}`);
+  console.log(`[seed] Products: ${await Product.countDocuments({ storeId: store._id })}`);
 }
 
 async function seedContent() {
@@ -229,7 +243,7 @@ async function seedContent() {
   console.log("[seed] Content seeded: coupons, FAQs, blog posts, banners");
 }
 
-async function seedDemoCustomersAndOrders() {
+async function seedDemoCustomersAndOrders(store) {
   const demoCustomers = [
     { name: "Rachel Greene", email: "rachel@example.com", password: "Customer@123", role: ROLES.CUSTOMER, isEmailVerified: true },
     { name: "James Carter", email: "james@example.com", password: "Customer@123", role: ROLES.CUSTOMER, isEmailVerified: true },
@@ -254,12 +268,13 @@ async function seedDemoCustomersAndOrders() {
     customers.push(user);
   }
 
-  const products = await Product.find().limit(3);
+  const products = await Product.find({ storeId: store._id }).limit(3);
   if (customers.length && products.length) {
     const now = Date.now();
     const orders = customers.flatMap((c, i) =>
       products.map((p, j) => ({
         user: c._id,
+        storeId: store._id,
         items: [{ productId: p._id, name: p.name, image: p.images[0] || "", price: p.price, quantity: (j % 2) + 1 }],
         subtotal: p.price * ((j % 2) + 1),
         discount: 0,
@@ -300,9 +315,10 @@ async function run() {
 
   await ensureDefaultPaymentMethods();
   await seedAdmin();
-  await seedCatalog();
+  const store = await ensureStore();
+  await seedCatalog(store);
   await seedContent();
-  if (WITH_DEMO) await seedDemoCustomersAndOrders();
+  if (WITH_DEMO) await seedDemoCustomersAndOrders(store);
 
   console.log("[seed] Done ✓");
   await mongoose.disconnect();

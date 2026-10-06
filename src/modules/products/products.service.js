@@ -15,6 +15,10 @@ import {
 
 const productImageFolder = `${config.cloudinary.folder}/products`;
 
+function escapeRegex(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 /**
  * Build a Mongo filter object from public query params.
  */
@@ -26,7 +30,18 @@ function buildPublicFilter(query) {
   }
   if (query.category) filter.category = query.category;
   if (query.categorySlug) filter.categorySlug = query.categorySlug;
-  if (query.brand) filter.brand = query.brand;
+  if (query.brand) filter.brand = new RegExp(`^${escapeRegex(query.brand.trim())}$`, "i");
+  if (["stitched", "unstitched", "modelwear"].includes(query.wearType)) filter.wearType = query.wearType;
+  if (query.gender === "men" || query.gender === "women") {
+    const audienceMatches = [{ gender: { $in: [query.gender, "unisex"] } }];
+    // Legacy dress categories predate the gender field; keep them visible in women's edits.
+    if (query.gender === "women") {
+      audienceMatches.push({ gender: { $exists: false }, category: /dress|gown/i });
+    } else {
+      audienceMatches.push({ gender: { $exists: false }, category: /(^|[^a-z])men'?s?([^a-z]|$)/i });
+    }
+    filter.$and = [...(filter.$and || []), { $or: audienceMatches }];
+  }
   if (query.minPrice || query.maxPrice) {
     filter.price = {};
     if (query.minPrice) filter.price.$gte = Number(query.minPrice);
@@ -36,15 +51,29 @@ function buildPublicFilter(query) {
     filter.tags = { $in: Array.isArray(query.tags) ? query.tags : [query.tags] };
   }
   if (query.featured === "true") filter.isFeatured = true;
+  if (query.new === "true") filter.isNew = true;
   if (query.bestSeller === "true") {
     filter.$or = [{ totalSold: { $gt: 0 } }, { isBestSeller: true }];
   }
   if (query.trending === "true") filter.isTrending = true;
   if (query.onSale === "true") filter.onSale = true;
   if (query.inStock === "true") {
-    filter.$or = [{ stock: { $gt: 0 } }, { "variants.stock": { $gt: 0 } }];
+    filter.$and = [
+      ...(filter.$and || []),
+      { $or: [{ stock: { $gt: 0 } }, { "variants.stock": { $gt: 0 } }] },
+    ];
   }
-  if (query.colors) filter.colors = { $in: [query.colors] };
+  if (query.colors) filter.colors = { $in: [new RegExp(`^${escapeRegex(query.colors.trim())}$`, "i")] };
+  if (query.size) {
+    const size = new RegExp(`^${escapeRegex(query.size.trim())}$`, "i");
+    filter.$and = [
+      ...(filter.$and || []),
+      { $or: [
+        { sizes: size },
+        { variants: { $elemMatch: { size, stock: { $gt: 0 } } } },
+      ] },
+    ];
+  }
 
   return filter;
 }
@@ -428,7 +457,7 @@ async function updateProduct(productId, data, files = [], storeId) {
   }
 
   const allowed = [
-    "name", "slug", "brand", "brandRef", "category", "categoryRef", "categorySlug",
+    "name", "slug", "brand", "gender", "brandRef", "category", "categoryRef", "categorySlug",
     "description", "features", "specifications", "materials", "sizeGuide", "shippingInfo",
     "price", "compareAtPrice",
     "stock", "lowStockThreshold", "sku", "tags", "isFeatured", "isBestSeller",

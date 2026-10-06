@@ -46,6 +46,7 @@ const createProductRules = [
   body("category").optional().isString(),
   body("categorySlug").optional().isString(),
   body("brand").optional().isString(),
+  body("gender").optional().isIn(["men", "women", "unisex"]),
   body("wearType").optional().custom((v) => {
     if (v === undefined || v === null || v === "") return true;
     if (["stitched", "unstitched", "modelwear"].includes(String(v))) return true;
@@ -113,6 +114,7 @@ const createProductRules = [
 const updateProductRules = [
   mongoId,
   body("name").optional().trim().isLength({ max: 200 }),
+  body("gender").optional().isIn(["men", "women", "unisex"]),
   body("price").optional().custom((v) => {
     const n = Number(v);
     if (isNaN(n)) throw new Error("Price must be a number.");

@@ -37,7 +37,7 @@ router.get("/health", (_req, res) =>
   res.status(200).json({
     success: true,
     statusCode: 200,
-    message: "NovaMart API is healthy.",
+    message: "Sab Pehno API is healthy.",
     data: {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),

@@ -1,5 +1,5 @@
 /**
- * Seed Veya cosmetic demo users.
+ * Seed Store demo users.
  * Run: node scripts/seed-cosmetic-users.js  (from Backend/)
  */
 import mongoose from "mongoose";
@@ -10,8 +10,8 @@ import User from "../src/modules/users/users.model.js";
 dotenv.config();
 
 const USERS = [
-  { name: "Veya Admin", email: "admin@veya.com", password: "Veya@123456", role: "admin" },
-  { name: "Veya Customer", email: "customer@veya.com", password: "Veya@123456", role: "customer" },
+  { name: "Store Admin", email: "admin@store.com", password: "Store@123456", role: "admin" },
+  { name: "Store Customer", email: "customer@store.com", password: "Store@123456", role: "customer" },
 ];
 
 async function main() {

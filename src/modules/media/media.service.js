@@ -12,7 +12,7 @@ async function uploadFile(userId, file, { folder = "Other", name } = {}) {
   const { url, publicId } = await uploadToCloudinary({
     buffer: file.buffer,
     mimetype: file.mimetype,
-    folder: `novamart/${safeFolder.toLowerCase()}`,
+    folder: `sabpehno/${safeFolder.toLowerCase()}`,
   });
 
   const type = file.mimetype.startsWith("video/") ? "video"

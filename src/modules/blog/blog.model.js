@@ -11,7 +11,7 @@ const blogPostSchema = new mongoose.Schema(
     coverImage: { type: String, default: "" },
     publicId: { type: String, default: "" },
     category: { type: String, default: "Lifestyle", index: true },
-    author: { type: String, default: "NovaMart" },
+    author: { type: String, default: "Sab Pehno" },
     authorAvatar: { type: String, default: "" },
     authorRef: { type: mongoose.Schema.Types.ObjectId, ref: "User", default: null },
     readTime: { type: Number, default: 3 },

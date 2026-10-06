@@ -21,6 +21,7 @@ const productSchema = new mongoose.Schema(
       trim: true,
     },
     brand: { type: String, trim: true, index: true },
+    gender: { type: String, enum: ["men", "women", "unisex"], default: "unisex", index: true },
     brandRef: { type: mongoose.Schema.Types.ObjectId, ref: "Brand", default: null },
     category: { type: String, trim: true, index: true },
     categoryRef: { type: mongoose.Schema.Types.ObjectId, ref: "Category", default: null },

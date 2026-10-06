@@ -28,12 +28,12 @@ app.use(
 );
 
 /* ── CORS ───────────────────────────────────────────────────── */
-const allowedOrigins = [config.clientUrl, config.frontendUrl].filter(Boolean);
+const allowedOrigins = new Set([config.clientUrl, config.frontendUrl, ...config.corsOrigins].filter(Boolean));
 app.use(
   cors({
     origin: (origin, cb) => {
       if (!origin) return cb(null, true);
-      if (allowedOrigins.includes(origin)) return cb(null, true);
+      if (allowedOrigins.has(origin)) return cb(null, true);
       if (config.isDev && /^https?:\/\/localhost(:\d+)?$/.test(origin)) {
         return cb(null, true);
       }
@@ -74,7 +74,7 @@ app.use(config.apiPrefix, routes);
 app.get("/", (_req, res) =>
   res.json({
     success: true,
-    message: "NovaMart API — see /api/v1/health",
+    message: "Sab Pehno API — see /api/v1/health",
     docs: "/api/v1",
   }),
 );

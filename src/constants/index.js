@@ -55,8 +55,8 @@ const NOTIFICATION_TYPES = Object.freeze([
 const LOG_TYPES = Object.freeze(["login", "activity", "error", "audit"]);
 
 const DEFAULT_SETTINGS = Object.freeze({
-  storeName: "NovaMart",
-  storeEmail: "support@novamart.com",
+  storeName: "Sab Pehno",
+  storeEmail: "support@sabpehno.com",
   supportPhone: "+1 555 010 0000",
   currency: "USD",
   currencySymbol: "$",

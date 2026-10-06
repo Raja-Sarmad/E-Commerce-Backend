@@ -6,8 +6,8 @@ const DEFAULT_SLUG = "ecommerce";
 const slugCache = new Map();
 
 const DEFAULT_STORES = [
-  { slug: "ecommerce", name: "NovaMart E-Commerce" },
-  { slug: "cosmetic", name: "Veya Cosmetic" },
+  { slug: "ecommerce", name: "NovaMart" },
+  { slug: "store", name: "Overdose Store" },
 ];
 
 async function ensureDefaultStores() {

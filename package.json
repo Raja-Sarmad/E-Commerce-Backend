@@ -14,6 +14,8 @@
     "seed:destroy": "node src/seed/seed.js --destroy",
     "clear:products": "node scripts/clear-products.js",
     "seed:stores": "node scripts/seed-stores.js",
+    "seed:store-catalog": "node scripts/seed-store-catalog.js",
+    "seed:store-users": "node scripts/seed-cosmetic-users.js",
     "seed:cosmetic-users": "node scripts/seed-cosmetic-users.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"

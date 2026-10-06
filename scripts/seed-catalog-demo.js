@@ -46,7 +46,7 @@ const CATEGORIES = [
 const PRODUCTS = [
   {
     name: "Noor Embroidered Lawn Suit",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Unstitched",
     categorySlug: "festive-unstitched",
     description: "3-piece lawn with thread embroidery and printed dupatta.",
@@ -66,7 +66,7 @@ const PRODUCTS = [
   },
   {
     name: "Rang Mahal Chiffon 3-Piece",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Unstitched",
     categorySlug: "festive-unstitched",
     description: "Sheer chiffon with sequin detailing and silk trousers.",
@@ -82,7 +82,7 @@ const PRODUCTS = [
   },
   {
     name: "Zari Work Pret Kurta",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Pret",
     categorySlug: "festive-pret",
     description: "Ready-to-wear kurta with gold zari borders.",
@@ -101,7 +101,7 @@ const PRODUCTS = [
   },
   {
     name: "Mehfil Embroidered Shalwar",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Pret",
     categorySlug: "festive-pret",
     description: "Festive pret set with hand-embroidered motifs.",
@@ -117,7 +117,7 @@ const PRODUCTS = [
   },
   {
     name: "Royal Velvet Shawl",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Luxury Collection",
     categorySlug: "luxury-collection",
     description: "Pure velvet shawl with antique gold trim.",
@@ -132,7 +132,7 @@ const PRODUCTS = [
   },
   {
     name: "Silk Organza Dupatta",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Accessories",
     categorySlug: "accessories",
     description: "Lightweight organza with scalloped edges.",
@@ -147,7 +147,7 @@ const PRODUCTS = [
   },
   {
     name: "Jashn Printed Lawn",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Unstitched",
     categorySlug: "festive-unstitched",
     description: "Vibrant digital print on premium lawn fabric.",
@@ -161,7 +161,7 @@ const PRODUCTS = [
   },
   {
     name: "Sitaray Chiffon Collection",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Unstitched",
     categorySlug: "festive-unstitched",
     description: "Star-motif chiffon with contrast piping.",
@@ -178,7 +178,7 @@ const PRODUCTS = [
   },
   {
     name: "Gulzar Pret Maxi",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Pret",
     categorySlug: "festive-pret",
     description: "Flowing maxi with floral block print.",
@@ -194,7 +194,7 @@ const PRODUCTS = [
   },
   {
     name: "Chandni Embroidered Top",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Pret",
     categorySlug: "festive-pret",
     description: "Moonlight-inspired embroidery on raw silk.",
@@ -210,7 +210,7 @@ const PRODUCTS = [
   },
   {
     name: "Heritage Banarsi Dupatta",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Luxury Collection",
     categorySlug: "luxury-collection",
     description: "Authentic banarsi weave with gold zari.",
@@ -228,7 +228,7 @@ const PRODUCTS = [
   },
   {
     name: "Pearl Clutch Bag",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Accessories",
     categorySlug: "accessories",
     description: "Evening clutch with pearl embellishment.",
@@ -242,7 +242,7 @@ const PRODUCTS = [
   },
   {
     name: "Eid Special Lawn Bundle",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Unstitched",
     categorySlug: "festive-unstitched",
     description: "Limited Eid bundle with bonus dupatta.",
@@ -260,7 +260,7 @@ const PRODUCTS = [
   },
   {
     name: "Velvet Pret Gown",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Luxury Collection",
     categorySlug: "luxury-collection",
     description: "Floor-length velvet gown for formal events.",
@@ -278,7 +278,7 @@ const PRODUCTS = [
   },
   {
     name: "Crystal Drop Earrings",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Accessories",
     categorySlug: "accessories",
     description: "Statement earrings with crystal drops.",
@@ -292,7 +292,7 @@ const PRODUCTS = [
   },
   {
     name: "Classic Cotton Kurta",
-    brand: "NovaMart",
+    brand: "Sab Pehno",
     category: "Festive Pret",
     categorySlug: "festive-pret",
     description: "Everyday cotton kurta with minimal embroidery.",

@@ -1,6 +1,6 @@
 import config from "../config/index.js";
 
-const BRAND = "NovaMart";
+const BRAND = "Sab Pehno";
 const PRIMARY = "#2563eb";
 const PRIMARY_DARK = "#1d4ed8";
 const TEXT = "#18181b";
