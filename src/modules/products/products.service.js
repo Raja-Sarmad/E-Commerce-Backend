@@ -30,7 +30,18 @@ function buildPublicFilter(query) {
   }
   if (query.category) filter.category = query.category;
   if (query.categorySlug) filter.categorySlug = query.categorySlug;
-  if (query.brand) filter.brand = new RegExp(`^${escapeRegex(query.brand.trim())}$`, "i");
+  if (query.brand) {
+    // Support comma-separated aliases: Frasaha,Farasha
+    const names = String(query.brand)
+      .split(",")
+      .map((name) => name.trim())
+      .filter(Boolean);
+    if (names.length === 1) {
+      filter.brand = new RegExp(`^${escapeRegex(names[0])}$`, "i");
+    } else if (names.length > 1) {
+      filter.brand = new RegExp(`^(${names.map(escapeRegex).join("|")})$`, "i");
+    }
+  }
   if (["stitched", "unstitched", "modelwear"].includes(query.wearType)) filter.wearType = query.wearType;
   if (query.gender === "men" || query.gender === "women") {
     const audienceMatches = [{ gender: { $in: [query.gender, "unisex"] } }];
