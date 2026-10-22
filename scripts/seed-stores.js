@@ -14,7 +14,9 @@ dotenv.config();
 
 const STORES = [
   { slug: "ecommerce", name: "NovaMart" },
-  { slug: "store", name: "Overdose Store" },
+  { slug: "store", name: "Sab Pehno" },
+  { slug: "warqu", name: "Warqu" },
+  { slug: "cosmetic", name: "Cosmetic (Veya)" },
 ];
 
 async function main() {

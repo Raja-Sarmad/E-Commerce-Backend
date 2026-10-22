@@ -17,6 +17,8 @@
     "seed:store-catalog": "node scripts/seed-store-catalog.js",
     "seed:store-users": "node scripts/seed-cosmetic-users.js",
     "seed:cosmetic-users": "node scripts/seed-cosmetic-users.js",
+    "seed:warqu-users": "node scripts/seed-warqu-users.js",
+    "seed:fill-all": "node scripts/seed-fill-all.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix"
   },

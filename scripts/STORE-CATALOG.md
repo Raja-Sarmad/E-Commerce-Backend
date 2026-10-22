@@ -6,7 +6,7 @@ The script uses the configured database and only the `store` tenant. Existing
 products are preserved, and rerunning it does not duplicate products. Photos are
 downloaded into `uploads/store-demo` and served by the backend.
 
-Manage products at `http://localhost:3001/admin/products?store=store`:
+Manage products in the shared **dashboard** app at `http://localhost:3001/admin/products?store=store`:
 
 - **Premium:** add the exact `Premium` tag.
 - **Collections:** assign the product to a category. All active categories appear
