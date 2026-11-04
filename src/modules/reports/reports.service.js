@@ -53,32 +53,91 @@ async function salesReport(query) {
 }
 
 /**
- * Inventory report — stock value, low/out of stock counts.
+ * Effective units for a product: sum of variant stocks when sizes exist,
+ * otherwise the product.stock field (same rule as the products admin form).
  */
-async function inventoryReport() {
+const effectiveStockExpr = {
+  $cond: [
+    { $gt: [{ $size: { $ifNull: ["$variants", []] } }, 0] },
+    { $sum: { $map: { input: "$variants", as: "v", in: { $ifNull: ["$$v.stock", 0] } } } },
+    { $ifNull: ["$stock", 0] },
+  ],
+};
+
+/**
+ * Inventory report — stock value, low/out of stock counts for one store.
+ */
+async function inventoryReport(storeId) {
+  const match = storeId ? { storeId } : {};
+
   const [rows, stats] = await Promise.all([
-    Product.find({})
-      .select("name sku stock price lowStockThreshold category isActive")
-      .sort({ stock: 1 })
-      .lean(),
     Product.aggregate([
+      { $match: match },
+      { $addFields: { effectiveStock: effectiveStockExpr } },
+      {
+        $project: {
+          name: 1,
+          sku: 1,
+          price: 1,
+          lowStockThreshold: 1,
+          category: 1,
+          isActive: 1,
+          stock: "$effectiveStock",
+        },
+      },
+      { $sort: { stock: 1 } },
+    ]),
+    Product.aggregate([
+      { $match: match },
+      { $addFields: { effectiveStock: effectiveStockExpr } },
       {
         $group: {
           _id: null,
           totalProducts: { $sum: 1 },
-          totalUnits: { $sum: "$stock" },
-          stockValue: { $sum: { $multiply: ["$stock", "$price"] } },
-          lowStock: { $sum: { $cond: [{ $and: [{ $gt: ["$stock", 0] }, { $lte: ["$stock", 10] }] }, 1, 0] } },
-          outOfStock: { $sum: { $cond: [{ $eq: ["$stock", 0] }, 1, 0] } },
+          totalUnits: { $sum: "$effectiveStock" },
+          stockValue: {
+            $sum: {
+              $multiply: ["$effectiveStock", { $ifNull: ["$price", 0] }],
+            },
+          },
+          lowStock: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $gt: ["$effectiveStock", 0] },
+                    {
+                      $lte: [
+                        "$effectiveStock",
+                        { $ifNull: ["$lowStockThreshold", 10] },
+                      ],
+                    },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          outOfStock: {
+            $sum: { $cond: [{ $lte: ["$effectiveStock", 0] }, 1, 0] },
+          },
         },
       },
     ]),
   ]);
 
-  return {
-    products: rows,
-    stats: stats[0] || { totalProducts: 0, totalUnits: 0, stockValue: 0, lowStock: 0, outOfStock: 0 },
+  const summary = stats[0] || {
+    totalProducts: 0,
+    totalUnits: 0,
+    stockValue: 0,
+    lowStock: 0,
+    outOfStock: 0,
   };
+  summary.stockValue = Math.round(Number(summary.stockValue || 0) * 100) / 100;
+  summary.totalUnits = Number(summary.totalUnits || 0);
+
+  return { products: rows, stats: summary };
 }
 
 /**

@@ -7,8 +7,8 @@ const salesReport = asyncHandler(async (req, res) => {
   return sendResponse(res, 200, "Sales report generated.", data);
 });
 
-const inventoryReport = asyncHandler(async (_req, res) => {
-  const data = await reportService.inventoryReport();
+const inventoryReport = asyncHandler(async (req, res) => {
+  const data = await reportService.inventoryReport(req.store?._id);
   return sendResponse(res, 200, "Inventory report generated.", data);
 });
 
