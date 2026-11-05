@@ -232,14 +232,22 @@ async function resendVerificationEmail(userId) {
 }
 
 /**
- * Forgot password — email a 6-digit OTP.
- * Always returns a generic success payload (enumeration protection).
+ * Forgot password — email a 6-digit OTP to the customer's inbox via SMTP.
+ * Unknown emails still get a generic success response (enumeration protection),
+ * but known accounts require a successful send.
  */
 async function forgotPassword(email) {
   const normalizedEmail = email.toLowerCase().trim();
   const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
     return { sent: true, emailSent: false };
+  }
+
+  if (!isMailConfigured()) {
+    throw new AppError(
+      "Email service is not configured. Set MAIL_HOST, MAIL_USER and MAIL_PASS on the server.",
+      503
+    );
   }
 
   const code = generateOtpCode();
@@ -259,23 +267,24 @@ async function forgotPassword(email) {
   );
 
   if (!mailResult.ok) {
+    // Dev-only fallback so local testing still works if SMTP is down.
     if (config.isDev) {
       console.log(`[password-reset-otp:dev] ${normalizedEmail} -> ${code}`);
-      return { sent: true, emailSent: false, devMode: true, devOtp: code };
+      return {
+        sent: true,
+        emailSent: false,
+        devMode: true,
+        devOtp: code,
+        warning: mailResult.error || "SMTP send failed; using dev OTP.",
+      };
     }
     throw new AppError(
-      isMailConfigured()
-        ? "Could not send reset email. Try again later."
-        : "Email service is not configured. Set MAIL_USER and MAIL_PASS on the server.",
+      "Could not send the reset code to your email. Please try again in a moment.",
       503
     );
   }
 
-  return {
-    sent: true,
-    emailSent: true,
-    ...(config.isDev ? { devMode: true, devOtp: code } : {}),
-  };
+  return { sent: true, emailSent: true };
 }
 
 /**

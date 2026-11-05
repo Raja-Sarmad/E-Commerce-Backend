@@ -2,13 +2,19 @@ import { transport } from "../config/email.js";
 import config from "../config/index.js";
 
 /**
- * Send email via Nodemailer. Never throws — failures are logged.
+ * Send email via Nodemailer SMTP (MAIL_* env).
+ * Returns { ok, messageId?, previewUrl?, error? } — never throws.
  *
  * @param {{ to: string, subject: string, html: string, text?: string }} mail
  */
 async function sendEmail({ to, subject, html, text }) {
+  if (!config.mail.user || !config.mail.pass) {
+    console.error("[email] MAIL_USER / MAIL_PASS missing — cannot send.");
+    return { ok: false, error: "Email service is not configured." };
+  }
+
   const mailOptions = {
-    from: config.mail.from,
+    from: config.mail.from || config.mail.user,
     to,
     subject,
     html,

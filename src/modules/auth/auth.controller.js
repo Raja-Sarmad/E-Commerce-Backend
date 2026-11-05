@@ -76,7 +76,7 @@ const forgotPassword = asyncHandler(async (req, res) => {
   return sendResponse(
     res,
     200,
-    "If an account exists with that email, a reset code has been sent.",
+    "If an account exists with that email, a 6-digit reset code has been sent to your inbox.",
     result
   );
 });
