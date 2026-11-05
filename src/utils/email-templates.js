@@ -165,23 +165,24 @@ function verificationEmail(name, url) {
   };
 }
 
-function passwordResetEmail(name, url) {
+function passwordResetEmail(name, code) {
   const safeName = escapeHtml(name);
 
   const bodyHtml = `
     <h1 style="margin:0 0 8px;font-size:24px;line-height:1.3;font-weight:800;color:${TEXT};">Reset your password</h1>
-    <p style="margin:0 0 16px;color:${MUTED};">Hi ${safeName}, we received a request to reset your password.</p>
-    ${primaryButton("Reset password", url)}
+    <p style="margin:0 0 16px;color:${MUTED};">Hi ${safeName}, use this code to set a new password for your ${BRAND} account.</p>
+    ${otpBox(code)}
+    <p style="margin:0;color:${MUTED};font-size:14px;">This code expires in <strong style="color:${TEXT};">10 minutes</strong>. Do not share it with anyone.</p>
     ${infoBox("If you didn't request a password reset, ignore this email. Your password will stay the same.")}`;
 
   return {
-    subject: `Reset your ${BRAND} password`,
+    subject: `${code} is your ${BRAND} password reset code`,
     html: emailLayout({
       title: "Reset your password",
-      preheader: "Reset your account password",
+      preheader: `Your password reset code is ${code}`,
       bodyHtml,
     }),
-    text: `Hi ${name},\n\nReset your password: ${url}\n\nThis link expires in 1 hour.`,
+    text: `Hi ${name},\n\nYour ${BRAND} password reset code is ${code}. It expires in 10 minutes.`,
   };
 }
 

@@ -45,10 +45,15 @@ const refreshRules = [
 const emailOnlyRules = [email, validate];
 
 const resetPasswordRules = [
-  param("token").notEmpty().withMessage("Reset token is required."),
+  email,
+  otp,
   body("newPassword")
     .isLength({ min: 8 })
-    .withMessage("New password must be at least 8 characters."),
+    .withMessage("New password must be at least 8 characters.")
+    .matches(/[A-Z]/)
+    .withMessage("New password must contain at least one uppercase letter.")
+    .matches(/[0-9]/)
+    .withMessage("New password must contain at least one number."),
   validate,
 ];
 

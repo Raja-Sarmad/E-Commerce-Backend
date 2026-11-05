@@ -30,7 +30,7 @@ router.post(
   authController.forgotPassword
 );
 router.post(
-  "/reset-password/:token",
+  "/reset-password",
   passwordResetLimiter,
   resetPasswordRules,
   authController.resetPassword

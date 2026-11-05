@@ -38,9 +38,10 @@ async function sendEmailOtp(email) {
   const code = generateOtpCode();
   const codeHash = await bcrypt.hash(code, 10);
 
-  await EmailOtp.deleteMany({ email: normalizedEmail });
+  await EmailOtp.deleteMany({ email: normalizedEmail, purpose: "register" });
   await EmailOtp.create({
     email: normalizedEmail,
+    purpose: "register",
     codeHash,
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
@@ -67,14 +68,18 @@ async function sendEmailOtp(email) {
   };
 }
 
-async function verifyEmailOtp(email, otp) {
+async function verifyEmailOtp(email, otp, purpose = "register") {
   const normalizedEmail = email.toLowerCase().trim();
   const code = String(otp ?? "").trim();
   if (!/^\d{6}$/.test(code)) {
     throw new AppError("Please enter the 6-digit OTP code.", 400);
   }
 
-  const record = await EmailOtp.findOne({ email: normalizedEmail, verified: false }).sort({
+  const record = await EmailOtp.findOne({
+    email: normalizedEmail,
+    purpose,
+    verified: false,
+  }).sort({
     createdAt: -1,
   });
   if (!record) {
@@ -106,7 +111,7 @@ async function verifyEmailOtp(email, otp) {
 async function register({ name, email, password, otp }) {
   const normalizedEmail = email.toLowerCase().trim();
 
-  await verifyEmailOtp(normalizedEmail, otp);
+  await verifyEmailOtp(normalizedEmail, otp, "register");
 
   const existing = await User.findOne({ email: normalizedEmail }).lean();
   if (existing) {
@@ -120,7 +125,7 @@ async function register({ name, email, password, otp }) {
     isEmailVerified: true,
   });
 
-  await EmailOtp.deleteMany({ email: normalizedEmail });
+  await EmailOtp.deleteMany({ email: normalizedEmail, purpose: "register" });
 
   const emailSent = await sendTemplateEmail(user.email, welcomeEmail(user.name));
 
@@ -227,45 +232,77 @@ async function resendVerificationEmail(userId) {
 }
 
 /**
- * Forgot password — email a reset link. Always returns success
- * even if the account doesn't exist (enumeration protection).
+ * Forgot password — email a 6-digit OTP.
+ * Always returns a generic success payload (enumeration protection).
  */
 async function forgotPassword(email) {
-  const user = await User.findOne({ email: email.toLowerCase().trim() });
+  const normalizedEmail = email.toLowerCase().trim();
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) {
-    return { emailSent: false, sent: false };
+    return { sent: true, emailSent: false };
   }
-  const resetToken = signOtpToken({ _id: user._id, purpose: "password_reset" }, "1h");
-  user.passwordResetToken = resetToken;
-  user.passwordResetExpires = new Date(Date.now() + 60 * 60 * 1000);
-  await user.save({ validateBeforeSave: false });
 
-  const resetUrl = `${config.frontendUrl}/reset-password?token=${resetToken}`;
-  const emailSent = await sendTemplateEmail(user.email, passwordResetEmail(user.name, resetUrl));
-  return { emailSent, sent: true };
+  const code = generateOtpCode();
+  const codeHash = await bcrypt.hash(code, 10);
+
+  await EmailOtp.deleteMany({ email: normalizedEmail, purpose: "password_reset" });
+  await EmailOtp.create({
+    email: normalizedEmail,
+    purpose: "password_reset",
+    codeHash,
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  });
+
+  const mailResult = await sendTemplateEmail(
+    user.email,
+    passwordResetEmail(user.name, code)
+  );
+
+  if (!mailResult.ok) {
+    if (config.isDev) {
+      console.log(`[password-reset-otp:dev] ${normalizedEmail} -> ${code}`);
+      return { sent: true, emailSent: false, devMode: true, devOtp: code };
+    }
+    throw new AppError(
+      isMailConfigured()
+        ? "Could not send reset email. Try again later."
+        : "Email service is not configured. Set MAIL_USER and MAIL_PASS on the server.",
+      503
+    );
+  }
+
+  return {
+    sent: true,
+    emailSent: true,
+    ...(config.isDev ? { devMode: true, devOtp: code } : {}),
+  };
 }
 
 /**
- * Reset password using the emailed token.
+ * Reset password with emailed OTP code.
  */
-async function resetPassword(token, newPassword) {
-  let decoded;
-  try {
-    decoded = verifyOtpToken(token);
-  } catch {
-    throw new AppError("Invalid or expired reset token.", 400);
+async function resetPassword({ email, otp, newPassword }) {
+  const normalizedEmail = String(email || "")
+    .toLowerCase()
+    .trim();
+  if (!normalizedEmail) {
+    throw new AppError("Email is required.", 400);
   }
-  if (decoded.purpose !== "password_reset") {
-    throw new AppError("Invalid reset token.", 400);
+
+  await verifyEmailOtp(normalizedEmail, otp, "password_reset");
+
+  const user = await User.findOne({ email: normalizedEmail });
+  if (!user) {
+    throw new AppError("User not found.", 404);
   }
-  const user = await User.findById(decoded._id);
-  if (!user) throw new AppError("User not found.", 404);
 
   user.password = newPassword;
   user.passwordResetToken = null;
   user.passwordResetExpires = null;
   user.refreshToken = null;
   await user.save();
+
+  await EmailOtp.deleteMany({ email: normalizedEmail, purpose: "password_reset" });
 
   const welcome = await sendTemplateEmail(user.email, passwordChangedEmail(user.name));
 

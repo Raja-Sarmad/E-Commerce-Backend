@@ -76,13 +76,17 @@ const forgotPassword = asyncHandler(async (req, res) => {
   return sendResponse(
     res,
     200,
-    "If an account exists with that email, a reset link has been sent.",
+    "If an account exists with that email, a reset code has been sent.",
     result
   );
 });
 
 const resetPassword = asyncHandler(async (req, res) => {
-  const { user } = await authService.resetPassword(req.params.token, req.body.newPassword);
+  const { user } = await authService.resetPassword({
+    email: req.body.email,
+    otp: req.body.otp,
+    newPassword: req.body.newPassword,
+  });
   return sendResponse(res, 200, "Password reset successfully. You can now log in.", user);
 });
 
