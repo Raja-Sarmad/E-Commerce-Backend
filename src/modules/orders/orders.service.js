@@ -7,8 +7,9 @@ import { applyDateRangeFilter } from "../../utils/dateRange.js";
 import * as couponService from "../coupons/coupons.service.js";
 import * as settingsService from "../settings/settings.service.js";
 import { createNotification } from "../notifications/notifications.service.js";
-import { sendTemplateEmail, orderConfirmationEmail } from "../../utils/email.js";
+import { sendTemplateEmail, orderConfirmationEmail, orderAdminNotifyEmail } from "../../utils/email.js";
 import { clearCatalogCache } from "../../utils/catalogCache.js";
+import config from "../../config/index.js";
 
 const ORDERABLE_STATUS = new Set(["pending", "processing", "shipped", "delivered", "cancelled"]);
 
@@ -173,10 +174,38 @@ async function createOrder(userId, data, storeId) {
       link: "/admin/orders",
     });
     const user = await User.findById(userId).lean();
-    await sendTemplateEmail(
-      user.email,
-      orderConfirmationEmail(user.name, order.number, `$${total.toFixed(2)}`)
-    );
+    const totalLabel = `$${Number(total).toFixed(2)}`;
+
+    // Customer confirmation
+    if (user?.email) {
+      await sendTemplateEmail(
+        user.email,
+        orderConfirmationEmail(user.name, order.number, totalLabel)
+      );
+    }
+
+    // Admin / store inbox alert
+    const adminInbox = config.mail.orderNotifyEmail;
+    if (adminInbox) {
+      await sendTemplateEmail(
+        adminInbox,
+        orderAdminNotifyEmail({
+          customerName: user?.name || "Customer",
+          customerEmail: user?.email || "",
+          orderNumber: order.number,
+          total: totalLabel,
+          paymentMethod: paymentMethod || "cod",
+          items: orderItems.map((item) => ({
+            name: item.name,
+            size: item.size,
+            color: item.color,
+            quantity: item.quantity,
+            price: `$${Number(item.price).toFixed(2)}`,
+          })),
+          shippingAddress: shippingAddress || {},
+        })
+      );
+    }
 
     return order;
   } catch (err) {

@@ -59,6 +59,11 @@ const config = {
     pass: process.env.MAIL_PASS || "",
     secure: String(process.env.MAIL_SECURE) === "true",
     from: process.env.MAIL_FROM || "Sab Pehno <no-reply@sabpehno.com>",
+    // New order alerts for the store team
+    orderNotifyEmail:
+      process.env.ORDER_NOTIFY_EMAIL ||
+      process.env.ADMIN_ORDER_EMAIL ||
+      "ordersabpehno@gmail.com",
   },
 
   cloudinary: {

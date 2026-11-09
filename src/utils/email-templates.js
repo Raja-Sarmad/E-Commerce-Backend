@@ -237,6 +237,82 @@ function orderConfirmationEmail(name, orderNumber, total) {
   };
 }
 
+function orderAdminNotifyEmail({
+  customerName,
+  customerEmail,
+  orderNumber,
+  total,
+  paymentMethod,
+  items = [],
+  shippingAddress = {},
+}) {
+  const safeName = escapeHtml(customerName || "Customer");
+  const safeEmail = escapeHtml(customerEmail || "");
+  const safeOrder = escapeHtml(orderNumber);
+  const safeTotal = escapeHtml(total);
+  const safePayment = escapeHtml(paymentMethod || "cod");
+  const adminOrdersUrl = `${config.frontendUrl.replace(/\/$/, "")}/admin/orders`;
+
+  const itemsHtml = (items || [])
+    .map((item) => {
+      const line = [
+        escapeHtml(item.name || "Item"),
+        item.size ? `Size ${escapeHtml(item.size)}` : null,
+        item.color ? `Color ${escapeHtml(item.color)}` : null,
+        `× ${escapeHtml(item.quantity || 1)}`,
+        item.price != null ? `@ ${escapeHtml(item.price)}` : null,
+      ]
+        .filter(Boolean)
+        .join(" · ");
+      return `<li style="margin:0 0 8px;color:${TEXT};">${line}</li>`;
+    })
+    .join("");
+
+  const addressLines = [
+    [shippingAddress.firstName, shippingAddress.lastName].filter(Boolean).join(" "),
+    shippingAddress.address,
+    [shippingAddress.city, shippingAddress.state, shippingAddress.zip].filter(Boolean).join(", "),
+    shippingAddress.country,
+    shippingAddress.phone ? `Phone: ${shippingAddress.phone}` : "",
+  ]
+    .filter(Boolean)
+    .map((line) => escapeHtml(line))
+    .join("<br />");
+
+  const bodyHtml = `
+    <h1 style="margin:0 0 8px;font-size:24px;line-height:1.3;font-weight:800;color:${TEXT};">New order received</h1>
+    <p style="margin:0 0 16px;color:${MUTED};">A customer just placed an order on ${BRAND}.</p>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#fafafa;border:1px solid ${BORDER};border-radius:12px;">
+      <tr>
+        <td style="padding:16px 18px;">
+          <p style="margin:0 0 6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${MUTED};">Order number</p>
+          <p style="margin:0 0 14px;font-size:18px;font-weight:700;color:${TEXT};">#${safeOrder}</p>
+          <p style="margin:0 0 6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${MUTED};">Customer</p>
+          <p style="margin:0 0 14px;font-size:15px;font-weight:600;color:${TEXT};">${safeName}<br /><span style="font-weight:400;color:${MUTED};">${safeEmail}</span></p>
+          <p style="margin:0 0 6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${MUTED};">Payment</p>
+          <p style="margin:0 0 14px;font-size:15px;color:${TEXT};text-transform:uppercase;">${safePayment}</p>
+          <p style="margin:0 0 6px;font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:${MUTED};">Total</p>
+          <p style="margin:0;font-size:22px;font-weight:800;color:${PRIMARY_DARK};">${safeTotal}</p>
+        </td>
+      </tr>
+    </table>
+    <h2 style="margin:22px 0 8px;font-size:16px;font-weight:700;color:${TEXT};">Items</h2>
+    <ul style="margin:0;padding-left:18px;">${itemsHtml || `<li style="color:${MUTED};">No items listed</li>`}</ul>
+    <h2 style="margin:22px 0 8px;font-size:16px;font-weight:700;color:${TEXT};">Shipping address</h2>
+    <p style="margin:0;color:${TEXT};line-height:1.6;">${addressLines || "—"}</p>
+    ${primaryButton("Open orders in admin", adminOrdersUrl)}`;
+
+  return {
+    subject: `New order #${orderNumber} — ${safeName}`,
+    html: emailLayout({
+      title: "New order received",
+      preheader: `Order #${orderNumber} from ${customerName || "customer"}`,
+      bodyHtml,
+    }),
+    text: `New order #${orderNumber}\nCustomer: ${customerName} <${customerEmail}>\nTotal: ${total}\nPayment: ${paymentMethod}\n\nOpen admin: ${adminOrdersUrl}`,
+  };
+}
+
 export {
   registrationOtpEmail,
   welcomeEmail,
@@ -244,4 +320,5 @@ export {
   passwordResetEmail,
   passwordChangedEmail,
   orderConfirmationEmail,
+  orderAdminNotifyEmail,
 };

@@ -61,4 +61,5 @@ export {
   passwordResetEmail,
   passwordChangedEmail,
   orderConfirmationEmail,
+  orderAdminNotifyEmail,
 } from "./email-templates.js";
