@@ -33,26 +33,23 @@ async function createOrder(userId, data, storeId) {
   const orderItems = items.map((item) => {
     const product = productMap.get(String(item.productId));
     if (!product) throw new AppError(`Product not found for item.`, 400);
+    const qty = Math.max(1, Math.floor(Number(item.quantity) || 0));
+    if (!Number.isFinite(qty) || qty < 1) {
+      throw new AppError(`Invalid quantity for "${product.name}".`, 400);
+    }
 
-    // Check variant-level stock if size is specified
-    if (item.size && product.variants && product.variants.length > 0) {
-      const variant = product.variants.find((v) => v.size === item.size);
-      if (!variant) {
-        throw new AppError(`Size "${item.size}" not available for "${product.name}".`, 400);
-      }
-      if (variant.stock < item.quantity) {
-        throw new AppError(
-          `Insufficient stock for "${product.name}" (size: ${item.size}). Only ${variant.stock} left.`,
-          400
-        );
-      }
-    } else if (product.variants && product.variants.length > 0 && !item.size) {
+    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+    if (hasVariants && !item.size) {
       throw new AppError(
         `Please select a size for "${product.name}" before placing the order.`,
         400
       );
-    } else if (product.stock < item.quantity) {
-      throw new AppError(`Insufficient stock for "${product.name}". Only ${product.stock} left.`, 400);
+    }
+    if (hasVariants) {
+      const variant = product.variants.find((v) => v.size === item.size);
+      if (!variant) {
+        throw new AppError(`Size "${item.size}" not available for "${product.name}".`, 400);
+      }
     }
 
     return {
@@ -60,11 +57,50 @@ async function createOrder(userId, data, storeId) {
       name: product.name,
       image: product.images[0] || "",
       price: product.price,
-      quantity: item.quantity,
+      quantity: qty,
       color: item.color || null,
       size: item.size || null,
     };
   });
+
+  // Merge demand by product + size so split cart lines cannot oversell.
+  const demandByKey = new Map();
+  for (const item of orderItems) {
+    const product = productMap.get(String(item.productId));
+    const hasVariants = Array.isArray(product.variants) && product.variants.length > 0;
+    const key = hasVariants
+      ? `${item.productId}|size|${item.size}`
+      : `${item.productId}|product`;
+    const prev = demandByKey.get(key);
+    if (prev) prev.quantity += item.quantity;
+    else {
+      demandByKey.set(key, {
+        productId: item.productId,
+        name: item.name,
+        size: hasVariants ? item.size : null,
+        quantity: item.quantity,
+        hasVariants,
+      });
+    }
+  }
+
+  for (const demand of demandByKey.values()) {
+    const product = productMap.get(String(demand.productId));
+    if (demand.hasVariants) {
+      const variant = product.variants.find((v) => v.size === demand.size);
+      if (!variant || variant.stock < demand.quantity) {
+        throw new AppError(
+          `Insufficient stock for "${demand.name}" (size: ${demand.size}). Only ${variant?.stock ?? 0} left.`,
+          400
+        );
+      }
+    } else if (product.stock < demand.quantity) {
+      throw new AppError(
+        `Insufficient stock for "${demand.name}". Only ${product.stock} left.`,
+        400
+      );
+    }
+  }
 
   const subtotal = Math.round(orderItems.reduce((s, i) => s + i.price * i.quantity, 0) * 100) / 100;
 
@@ -87,54 +123,52 @@ async function createOrder(userId, data, storeId) {
 
   const decremented = [];
   try {
-    for (const item of orderItems) {
-      if (item.size) {
-        // Variant-level decrement using atomic update
+    for (const demand of demandByKey.values()) {
+      if (demand.hasVariants) {
         const updated = await Product.findOneAndUpdate(
           {
-            _id: item.productId,
+            _id: demand.productId,
             isActive: true,
             variants: {
-              $elemMatch: { size: item.size, stock: { $gte: item.quantity } },
+              $elemMatch: { size: demand.size, stock: { $gte: demand.quantity } },
             },
           },
           {
             $inc: {
-              "variants.$.stock": -item.quantity,
-              totalSold: item.quantity,
+              "variants.$.stock": -demand.quantity,
+              totalSold: demand.quantity,
             },
           },
           { new: true }
         );
         if (!updated) {
           throw new AppError(
-            `Insufficient stock for "${item.name}" (size: ${item.size}). Please refresh your cart and try again.`,
+            `Insufficient stock for "${demand.name}" (size: ${demand.size}). Please refresh your cart and try again.`,
             400
           );
         }
-        // Sync total stock from variants
-        updated.stock = updated.variants.reduce((sum, v) => sum + (v.stock || 0), 0);
+        // Keep product.stock in sync with size stocks (0 => sold out on storefront).
+        updated.stock = updated.variants.reduce((sum, v) => sum + Math.max(0, v.stock || 0), 0);
+        if (updated.stock < 0) updated.stock = 0;
         await updated.save();
-        decremented.push({ productId: item.productId, quantity: item.quantity, size: item.size });
-      } else if (productMap.get(String(item.productId)).variants?.length > 0) {
-        throw new AppError(
-          `Please select a size for "${item.name}" before placing the order.`,
-          400
-        );
+        decremented.push({
+          productId: demand.productId,
+          quantity: demand.quantity,
+          size: demand.size,
+        });
       } else {
-        // Product-level decrement
         const updated = await Product.findOneAndUpdate(
-          { _id: item.productId, stock: { $gte: item.quantity }, isActive: true },
-          { $inc: { stock: -item.quantity, totalSold: item.quantity } },
+          { _id: demand.productId, stock: { $gte: demand.quantity }, isActive: true },
+          { $inc: { stock: -demand.quantity, totalSold: demand.quantity } },
           { new: true }
         );
         if (!updated) {
           throw new AppError(
-            `Insufficient stock for "${item.name}". Please refresh your cart and try again.`,
+            `Insufficient stock for "${demand.name}". Please refresh your cart and try again.`,
             400
           );
         }
-        decremented.push({ productId: item.productId, quantity: item.quantity });
+        decremented.push({ productId: demand.productId, quantity: demand.quantity });
       }
     }
 
