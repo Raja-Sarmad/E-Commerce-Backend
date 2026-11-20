@@ -13,7 +13,23 @@ import config from "../../config/index.js";
 
 const ORDERABLE_STATUS = new Set(["pending", "processing", "shipped", "delivered", "cancelled"]);
 
-async function createOrder(userId, data, storeId) {
+/** Sab Pehno storefront PKR → USD (matches Store/lib/money.ts). */
+const SABPEHNO_PKR_RATE = 278;
+const SABPEHNO_KARACHI_DC_PKR = 300;
+const SABPEHNO_OUTSIDE_DC_PKR = 350;
+
+function isKarachiCity(city = "") {
+  return /karachi/i.test(String(city || "").trim());
+}
+
+function sabPehnoDeliveryUsd(city = "") {
+  const pkr = isKarachiCity(city) ? SABPEHNO_KARACHI_DC_PKR : SABPEHNO_OUTSIDE_DC_PKR;
+  return Math.round((pkr / SABPEHNO_PKR_RATE) * 10000) / 10000;
+}
+
+async function createOrder(userId, data, store) {
+  const storeId = store?._id || store;
+  const storeSlug = store?.slug || "";
   if (!storeId) throw new AppError("Store context is required.", 500);
   const settings = await settingsService.getSettings();
   const { items, couponCode, shippingAddress, billingAddress, paymentMethod, deliveryOption } = data;
@@ -112,13 +128,23 @@ async function createOrder(userId, data, storeId) {
     discount = result.discount;
   }
 
-  let baseShipping =
-    subtotal - discount >= settings.freeShippingThreshold ? 0 : settings.defaultShippingRate;
-  if (deliveryOption === "express") baseShipping += 12;
-  else if (deliveryOption === "nextday") baseShipping += 25;
-
-  const shipping = baseShipping;
-  const tax = Math.round((subtotal - discount) * (settings.taxRate / 100) * 100) / 100;
+  let shipping;
+  let tax;
+  if (storeSlug === "store") {
+    // Sab Pehno: Karachi Rs 300 · rest of Pakistan Rs 350 (stored as USD for PKR display).
+    if (!shippingAddress?.city?.trim()) {
+      throw new AppError("Please enter your city so we can calculate delivery charges.", 400);
+    }
+    shipping = sabPehnoDeliveryUsd(shippingAddress.city);
+    tax = 0;
+  } else {
+    let baseShipping =
+      subtotal - discount >= settings.freeShippingThreshold ? 0 : settings.defaultShippingRate;
+    if (deliveryOption === "express") baseShipping += 12;
+    else if (deliveryOption === "nextday") baseShipping += 25;
+    shipping = baseShipping;
+    tax = Math.round((subtotal - discount) * (settings.taxRate / 100) * 100) / 100;
+  }
   const total = Math.round((subtotal - discount + shipping + tax) * 100) / 100;
 
   const decremented = [];

@@ -6,7 +6,7 @@ import * as orderService from "./orders.service.js";
 const storeId = (req) => req.store._id;
 
 const createOrder = asyncHandler(async (req, res) => {
-  const order = await orderService.createOrder(req.user._id, req.body, storeId(req));
+  const order = await orderService.createOrder(req.user._id, req.body, req.store);
   await logFromRequest(req, {
     type: "activity",
     action: `Order placed #${order.number}`,

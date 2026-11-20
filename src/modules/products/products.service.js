@@ -43,15 +43,22 @@ function buildPublicFilter(query) {
     }
   }
   if (["stitched", "unstitched", "modelwear"].includes(query.wearType)) filter.wearType = query.wearType;
-  if (query.gender === "men" || query.gender === "women") {
-    const audienceMatches = [{ gender: { $in: [query.gender, "unisex"] } }];
-    // Legacy dress categories predate the gender field; keep them visible in women's edits.
-    if (query.gender === "women") {
-      audienceMatches.push({ gender: { $exists: false }, category: /dress|gown/i });
-    } else {
-      audienceMatches.push({ gender: { $exists: false }, category: /(^|[^a-z])men'?s?([^a-z]|$)/i });
-    }
-    filter.$and = [...(filter.$and || []), { $or: audienceMatches }];
+  if (query.gender === "men") {
+    // Men's page: only products marked Men's Collection.
+    filter.gender = "men";
+  } else if (query.gender === "women") {
+    // Women's page: everything except men's (women, unisex, dresses, unset).
+    filter.$and = [
+      ...(filter.$and || []),
+      {
+        $or: [
+          { gender: "women" },
+          { gender: "unisex" },
+          { gender: { $exists: false } },
+          { gender: null },
+        ],
+      },
+    ];
   }
   if (query.minPrice || query.maxPrice) {
     filter.price = {};
@@ -155,6 +162,15 @@ function buildAdminFilter(query) {
       { stock: { $lte: 0 } },
       { $or: [{ variants: { $size: 0 } }, { variants: { $not: { $elemMatch: { stock: { $gt: 0 } } } } }] },
     ];
+  }
+  if (query.stockStatus === "in") {
+    filter.$and = [
+      ...(filter.$and || []),
+      { $or: [{ stock: { $gte: 10 } }, { "variants.stock": { $gte: 10 } }] },
+    ];
+  }
+  if (query.gender === "men" || query.gender === "women" || query.gender === "unisex") {
+    filter.gender = query.gender;
   }
   return filter;
 }
